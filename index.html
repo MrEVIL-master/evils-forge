@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="ru" data-theme="dark" data-space="all">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evil's Forge — Кузница косплея</title>
+  <link rel="icon" href="assets/logo-sm.webp" type="image/webp">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Russo+One&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Тема и пространство ставятся до первой отрисовки, чтобы не было вспышки
+    (function () {
+      var d = document.documentElement, t = null, s = null, a = null;
+      try { t = localStorage.getItem('evilsforge.theme'); s = localStorage.getItem('evilsforge.space'); a = localStorage.getItem('evilsforge.arts'); } catch (e) {}
+      if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      d.setAttribute('data-theme', t);
+      d.setAttribute('data-arts', a === 'off' ? 'off' : 'on');
+      if (s === 'workshop' || s === 'personal' || s === 'all') d.setAttribute('data-space', s);
+    })();
+  </script>
+</head>
+<body>
+  <!-- ===== SVG-спрайт иконок ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-sew" viewBox="0 0 24 24"><path d="M5 19 19 5"/><path d="M16 3.5l4.5 4.5"/><path d="M5 19c-2.5-3.5 3.5-6.5.5-10.5"/></symbol>
+      <symbol id="i-armor" viewBox="0 0 24 24"><path d="M13 8 4 17l3 3 9-9"/><path d="M11 5h7l3 3-4 4-6-6Z"/></symbol>
+      <symbol id="i-paint" viewBox="0 0 24 24"><path d="M18 3l3 3-10 10-3-3Z"/><path d="M8 13c-3 0-5 2-5 7 3 0 6-1.5 6-4.5"/></symbol>
+      <symbol id="i-wig" viewBox="0 0 24 24"><path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M5 11c3.5 0 6-2 7-5 1 3 3.5 5 7 5"/><path d="M8.5 21v-6M15.5 21v-6"/></symbol>
+      <symbol id="i-makeup" viewBox="0 0 24 24"><path d="M4 7c3-2 13-2 16 0 0 8-3 14-8 14S4 15 4 7Z"/><path d="M7.5 11l3 1M16.5 11l-3 1M9 16l1.5-1 1.5 1 1.5-1 1.5 1"/><path d="M6 5.5 4.5 2M18 5.5 19.5 2"/></symbol>
+      <symbol id="i-props" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="M21 3h-4.5M21 3v4.5"/><path d="M7 12l5 5M4 20l4.5-4.5"/></symbol>
+      <symbol id="i-photo" viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v12H3Z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+      <symbol id="i-con" viewBox="0 0 24 24"><path d="M2.5 5c6.5 1.5 12.5 1.5 19 0"/><path d="M4.5 9.5h15M7 6v15M17 6v15"/></symbol>
+      <symbol id="i-other" viewBox="0 0 24 24"><path d="M12 3 21 12 12 21 3 12Z"/><path d="M12 8.5 15.5 12 12 15.5 8.5 12Z"/></symbol>
+      <symbol id="i-fan" viewBox="0 0 24 24"><path d="M12 21 2.5 9.5a13 13 0 0 1 19 0Z"/><path d="M12 21 7.5 6M12 21V4.5M12 21l4.5-15"/></symbol>
+      <symbol id="i-forge" viewBox="0 0 24 24"><path d="M3 9h13l5-3v6h-4l-2 3H8L5 11H3Z"/><path d="M9 15l-2 6h10l-2-6"/></symbol>
+      <symbol id="i-all" viewBox="0 0 24 24"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M14.5 4.5l5 5L9 20H4v-5Z"/><path d="m12.5 6.5 5 5"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
+      <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.5"/><path d="M4.5 7v5c0 2 3.4 3.5 7.5 3.5s7.5-1.5 7.5-3.5V7"/><path d="M4.5 12v5c0 2 3.4 3.5 7.5 3.5s7.5-1.5 7.5-3.5v-5"/></symbol>
+      <symbol id="i-steps" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11"/><path d="M4 18h2"/></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.2-6.5 8-6.5s7 2 8 6.5"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h5v16h-5"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 21v-5h-5"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-flame"viewBox="0 0 24 24"><path d="M12 21c-4 0-7-2.7-7-6.5 0-4 3.5-5.5 4-10 3 2 3.5 4.5 3.5 6 1-1 1.5-2.5 1.5-3.5 2.5 2 5 4.5 5 7.5 0 3.8-3 6.5-7 6.5Z"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- ===== Фон: панели, дымки, волны, полутон ===== -->
+  <div class="bg" aria-hidden="true">
+    <span class="panel p1"></span>
+    <span class="panel p2"></span>
+    <span class="panel p3"></span>
+    <span class="seigaiha"></span>
+    <span class="halftone h1"></span>
+    <span class="halftone h2"></span>
+    <span class="bg-kanji">鍛</span>
+    <img class="bg-art a1" src="assets/art-spirit.jpg" alt="" decoding="async">
+    <img class="bg-art a2" src="assets/art-geisha.jpg" alt="" decoding="async">
+    <svg class="smoke" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <path class="ribbon r1" d="M-60 640 C 160 520, 260 760, 470 640 S 760 420, 900 560 S 1180 760, 1500 520"/>
+      <path class="ribbon-line l1" d="M-60 640 C 160 520, 260 760, 470 640 S 760 420, 900 560 S 1180 760, 1500 520"/>
+      <path class="wisp w1" d="M-40 220 C 120 120, 220 330, 380 230 S 600 80, 700 200 S 880 340, 960 260"/>
+      <path class="wisp w2" d="M1480 180 C 1320 260, 1260 80, 1120 160 S 960 320, 860 240"/>
+      <path class="wisp w3" d="M200 920 C 260 800, 420 860, 460 760 S 420 600, 560 560"/>
+      <path class="wisp w4" d="M1500 820 C 1380 700, 1260 860, 1160 760 S 1100 600, 1240 560"/>
+    </svg>
+    <span class="grain"></span>
+  </div>
+
+  <div class="app">
+    <!-- ===== Шапка ===== -->
+    <header class="topbar glass">
+      <div class="brand">
+        <span class="logo-glow"><img src="assets/logo-sm.webp" alt="Evil's Forge"></span>
+        <div class="brand-text">
+          <h1 class="brand-title">EVIL'S FORGE</h1>
+          <p class="brand-sub"><span>◆</span> кузница косплея</p>
+        </div>
+      </div>
+
+      <div class="seg seg-space" id="spaceSwitch" role="tablist" aria-label="Пространство">
+        <span class="seg-ind" aria-hidden="true"></span>
+        <button type="button" role="tab" class="seg-btn" data-value="all"><svg class="ico"><use href="#i-all"/></svg><span>Всё</span></button>
+        <button type="button" role="tab" class="seg-btn" data-value="workshop"><svg class="ico"><use href="#i-forge"/></svg><span>Мастерская</span></button>
+        <button type="button" role="tab" class="seg-btn" data-value="personal"><svg class="ico"><use href="#i-fan"/></svg><span>Личное</span></button>
+      </div>
+
+      <label class="search">
+        <svg class="ico"><use href="#i-search"/></svg>
+        <input id="search" type="search" placeholder="Поиск задач…" autocomplete="off">
+        <kbd>/</kbd>
+      </label>
+
+      <div class="top-actions">
+        <div class="user-wrap">
+          <button id="userBtn" class="user-btn" type="button" aria-haspopup="menu" aria-expanded="false" title="Аккаунт">
+            <span class="avatar" id="userAvatar">?</span>
+            <span class="sync-dot" id="syncDot" data-status="local"></span>
+          </button>
+          <div class="user-menu glass" id="userMenu" role="menu" hidden>
+            <div class="um-head">
+              <span class="avatar avatar-lg" id="umAvatar">?</span>
+              <div class="um-who">
+                <b id="umName">Гость</b>
+                <span id="umEmail">локальный режим</span>
+              </div>
+            </div>
+            <div class="um-sync"><span class="sync-dot" id="umSyncDot" data-status="local"></span><span id="umSyncText">Данные только на этом устройстве</span></div>
+            <label class="um-row"><span>Арты на фоне</span><input type="checkbox" class="toggle" id="artsToggle"></label>
+            <button type="button" class="um-item" id="umSyncNow"><svg class="ico"><use href="#i-sync"/></svg>Синхронизировать</button>
+            <button type="button" class="um-item" id="umLogin"><svg class="ico"><use href="#i-user"/></svg>Войти или создать аккаунт</button>
+            <button type="button" class="um-item um-danger" id="umLogout"><svg class="ico"><use href="#i-logout"/></svg>Выйти</button>
+          </div>
+        </div>
+        <button id="themeToggle" class="icon-btn theme-toggle" type="button" aria-label="Сменить тему" title="Сменить тему">
+          <svg class="ico i-sun"><use href="#i-sun"/></svg>
+          <svg class="ico i-moon"><use href="#i-moon"/></svg>
+        </button>
+        <button id="addBtn" class="btn btn-primary" type="button">
+          <svg class="ico"><use href="#i-plus"/></svg><span>Задача</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== Статистика ===== -->
+    <section class="stats" aria-label="Статистика">
+      <article class="stat stat-ring glass" style="--sc: var(--magenta)">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-ink" cx="60" cy="60" r="48"/>
+          <circle class="ring-track" cx="60" cy="60" r="48"/>
+          <circle id="ringBar" class="ring-bar" cx="60" cy="60" r="48"/>
+        </svg>
+        <div class="ring-label">
+          <strong><span id="ringPct">0</span>%</strong>
+          <span>выковано</span>
+          <small><b id="ringDone">0</b> из <b id="ringTotal">0</b></small>
+        </div>
+      </article>
+
+      <article class="stat glass personal-only" style="--sc: var(--cyan)">
+        <span class="stat-icon"><svg class="ico"><use href="#i-steps"/></svg></span>
+        <span class="stat-label">Всего задач</span>
+        <strong class="stat-value" id="statTotal">0</strong>
+      </article>
+      <article class="stat glass" style="--sc: var(--violet)">
+        <span class="stat-icon"><svg class="ico"><use href="#i-armor"/></svg></span>
+        <span class="stat-label">В работе</span>
+        <strong class="stat-value" id="statProgress">0</strong>
+      </article>
+      <article class="stat glass" id="overdueCard" style="--sc: var(--core)">
+        <span class="stat-icon"><svg class="ico"><use href="#i-flame"/></svg></span>
+        <span class="stat-label">Горит</span>
+        <strong class="stat-value" id="statOverdue">0</strong>
+      </article>
+      <article class="stat stat-budget glass ws-only" style="--sc: var(--yellow)">
+        <span class="stat-icon"><svg class="ico"><use href="#i-coin"/></svg></span>
+        <span class="stat-label">Бюджет</span>
+        <strong class="stat-value"><span id="statSpent">0</span><i>₽</i></strong>
+        <div class="budget-line">
+          <span class="bar"><span id="budgetBar"></span></span>
+          <small>из <b id="statPlanned">0</b> ₽</small>
+        </div>
+      </article>
+      <article class="stat stat-con glass ws-only" style="--sc: var(--cyan)">
+        <span class="stat-icon"><svg class="ico"><use href="#i-con"/></svg></span>
+        <span class="stat-label">Ближайший конвент</span>
+        <strong class="stat-value" id="conDays">—</strong>
+        <small class="con-name" id="conName">нет в планах</small>
+      </article>
+    </section>
+
+    <!-- ===== Проекты-персонажи ===== -->
+    <section class="projects ws-only" aria-label="Проекты">
+      <header class="section-head">
+        <h2 class="section-title">Проекты <em>персонажи</em></h2>
+        <span class="stitch" aria-hidden="true"></span>
+        <button id="addProjectBtn" class="btn btn-ghost btn-sm" type="button">
+          <svg class="ico"><use href="#i-plus"/></svg><span>Проект</span>
+        </button>
+      </header>
+      <div class="projects-track" id="projectsTrack"></div>
+    </section>
+
+    <!-- ===== Фильтры ===== -->
+    <section class="toolbar glass" aria-label="Фильтры">
+      <div class="seg" id="statusFilter" role="tablist" aria-label="Статус">
+        <span class="seg-ind" aria-hidden="true"></span>
+        <button type="button" role="tab" class="seg-btn is-active" data-value="all">Все</button>
+        <button type="button" role="tab" class="seg-btn" data-value="todo">К выполнению</button>
+        <button type="button" role="tab" class="seg-btn" data-value="progress">В работе</button>
+        <button type="button" role="tab" class="seg-btn" data-value="done">Готово</button>
+      </div>
+
+      <button type="button" class="filter-chip" id="projectChip" hidden></button>
+
+      <div class="toolbar-right">
+        <label class="field-inline ws-only">
+          <span>Работа</span>
+          <select id="workFilter" class="select"></select>
+        </label>
+        <label class="field-inline">
+          <span>Приоритет</span>
+          <select id="priorityFilter" class="select">
+            <option value="all">Любой</option>
+            <option value="critical">Критический</option>
+            <option value="high">Высокий</option>
+            <option value="medium">Средний</option>
+            <option value="low">Низкий</option>
+          </select>
+        </label>
+        <label class="field-inline">
+          <span>Сортировка</span>
+          <select id="sortSelect" class="select">
+            <option value="deadline">По дедлайну</option>
+            <option value="priority">По приоритету</option>
+            <option value="created">Сначала новые</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <!-- ===== Канбан ===== -->
+    <main class="board" id="board" data-filter="all">
+      <section class="column glass" data-status="todo">
+        <header class="column-head">
+          <span class="col-label">К выполнению</span>
+          <span class="col-kanji" aria-hidden="true">待</span>
+          <span class="col-count" data-count="todo">0</span>
+        </header>
+        <div class="column-body" data-drop="todo"></div>
+      </section>
+      <section class="column glass" data-status="progress">
+        <header class="column-head">
+          <span class="col-label">В работе</span>
+          <span class="col-kanji" aria-hidden="true">鍛</span>
+          <span class="col-count" data-count="progress">0</span>
+        </header>
+        <div class="column-body" data-drop="progress"></div>
+      </section>
+      <section class="column glass" data-status="done">
+        <header class="column-head">
+          <span class="col-label">Готово</span>
+          <span class="col-kanji" aria-hidden="true">完</span>
+          <span class="col-count" data-count="done">0</span>
+        </header>
+        <div class="column-body" data-drop="done"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span><kbd>N</kbd> новая задача</span>
+      <span><kbd>P</kbd> новый проект</span>
+      <span><kbd>/</kbd> поиск</span>
+      <span><kbd>Esc</kbd> закрыть</span>
+    </footer>
+  </div>
+
+  <!-- ===== Модалка задачи ===== -->
+  <div class="overlay" id="taskOverlay" aria-hidden="true">
+    <form class="modal modal-lg glass" id="taskForm" data-space="workshop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" novalidate>
+      <header class="modal-head">
+        <h3 id="modalTitle">Новая задача</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+
+      <div class="tabs" role="tablist">
+        <span class="seg-ind" aria-hidden="true"></span>
+        <button type="button" class="tab is-active" data-tab="main">Основное</button>
+        <button type="button" class="tab" data-tab="subs">Этапы <i id="subsCount">0</i></button>
+        <button type="button" class="tab ws-field" data-tab="mats">Материалы <i id="matsCount">0</i></button>
+      </div>
+
+      <div class="tab-panels">
+        <section class="tab-panel is-active" data-panel="main">
+          <div class="space-pick" id="fSpace">
+            <label class="space-opt"><input type="radio" name="space" value="workshop" checked><span><svg class="ico"><use href="#i-forge"/></svg>Мастерская</span></label>
+            <label class="space-opt"><input type="radio" name="space" value="personal"><span><svg class="ico"><use href="#i-fan"/></svg>Личное</span></label>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Название <i>*</i></span>
+            <input id="fTitle" type="text" maxlength="120" placeholder="Что нужно выковать?" required>
+            <small class="field-error">Введите название задачи</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Описание</span>
+            <textarea id="fDesc" rows="3" maxlength="600" placeholder="Детали, референсы, заметки…"></textarea>
+          </label>
+
+          <div class="field-row ws-field">
+            <label class="field">
+              <span class="field-label">Проект-персонаж</span>
+              <select id="fProject" class="select"></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Тип работы</span>
+              <select id="fWork" class="select"></select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Статус</span>
+              <select id="fStatus" class="select">
+                <option value="todo">К выполнению</option>
+                <option value="progress">В работе</option>
+                <option value="done">Готово</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Дедлайн</span>
+              <input id="fDeadline" type="datetime-local">
+            </label>
+          </div>
+
+          <fieldset class="field">
+            <legend class="field-label">Приоритет</legend>
+            <div class="chips">
+              <label class="chip" data-p="low"><input type="radio" name="priority" value="low"><span>Низкий</span></label>
+              <label class="chip" data-p="medium"><input type="radio" name="priority" value="medium" checked><span>Средний</span></label>
+              <label class="chip" data-p="high"><input type="radio" name="priority" value="high"><span>Высокий</span></label>
+              <label class="chip" data-p="critical"><input type="radio" name="priority" value="critical"><span>Критический</span></label>
+            </div>
+          </fieldset>
+        </section>
+
+        <section class="tab-panel" data-panel="subs">
+          <p class="panel-hint">Разбей работу на этапы: выкройка → крафт → грунт → покраска…</p>
+          <ul class="editor-list" id="subEditor"></ul>
+          <div class="add-row">
+            <input id="subNew" type="text" maxlength="120" placeholder="Новый этап и Enter">
+            <button type="button" class="btn btn-ghost btn-sm" id="subAdd"><svg class="ico"><use href="#i-plus"/></svg><span>Этап</span></button>
+          </div>
+        </section>
+
+        <section class="tab-panel" data-panel="mats">
+          <div class="mat-head"><span>Материал</span><span>Кол-во</span><span>Цена, ₽</span><span>Куплено</span><span></span></div>
+          <ul class="editor-list" id="matEditor"></ul>
+          <div class="add-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="matAdd"><svg class="ico"><use href="#i-plus"/></svg><span>Материал</span></button>
+            <div class="mat-total">Куплено <b id="matSpent">0 ₽</b> из <b id="matTotal">0 ₽</b></div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
+        <button type="submit" class="btn btn-primary" id="submitBtn"><span>Создать</span></button>
+      </footer>
+    </form>
+  </div>
+
+  <!-- ===== Модалка проекта ===== -->
+  <div class="overlay" id="projectOverlay" aria-hidden="true">
+    <form class="modal glass" id="projectForm" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle" novalidate>
+      <header class="modal-head">
+        <h3 id="projectModalTitle">Новый персонаж</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+
+      <label class="field">
+        <span class="field-label">Персонаж / костюм <i>*</i></span>
+        <input id="pName" type="text" maxlength="60" placeholder="Например, Призрачный самурай" required>
+        <small class="field-error">Введите имя персонажа</small>
+      </label>
+      <label class="field">
+        <span class="field-label">Фандом</span>
+        <input id="pFandom" type="text" maxlength="60" placeholder="Игра, аниме или ориджинал">
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Конвент / съёмка</span>
+          <input id="pCon" type="text" maxlength="60" placeholder="Название события">
+        </label>
+        <label class="field">
+          <span class="field-label">Дата</span>
+          <input id="pDeadline" type="date">
+        </label>
+      </div>
+      <fieldset class="field">
+        <legend class="field-label">Цвет панели</legend>
+        <div class="swatches" id="pColors"></div>
+      </fieldset>
+      <fieldset class="field">
+        <legend class="field-label">Обложка-арт</legend>
+        <div class="art-pick" id="pArts"></div>
+      </fieldset>
+
+      <footer class="modal-foot">
+        <button type="button" class="btn btn-danger-ghost" id="projectDelete" hidden><svg class="ico"><use href="#i-trash"/></svg><span>Удалить</span></button>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
+        <button type="submit" class="btn btn-primary" id="projectSubmit"><span>Создать</span></button>
+      </footer>
+    </form>
+  </div>
+
+  <!-- ===== Подтверждение ===== -->
+  <div class="overlay" id="confirmOverlay" aria-hidden="true">
+    <div class="modal modal-sm glass" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="confirm-icon"><svg class="ico"><use href="#i-trash"/></svg></div>
+      <h3 id="confirmTitle">Уничтожить?</h3>
+      <p class="confirm-text" id="confirmText"></p>
+      <footer class="modal-foot">
+        <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
+        <button type="button" class="btn btn-danger" id="confirmBtn"><span>Удалить</span></button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===== Вход и регистрация ===== -->
+  <section class="auth" id="auth" hidden aria-labelledby="authTitle">
+    <div class="auth-gallery" id="authGallery" aria-hidden="true"></div>
+
+    <div class="auth-side">
+      <form class="auth-card glass" id="authForm" novalidate>
+        <span class="auth-logo"><img src="assets/logo.webp" alt="Evil's Forge"></span>
+        <h2 class="auth-title" id="authTitle">Вход в кузницу</h2>
+        <p class="auth-sub" id="authSub">Твои костюмы, этапы и бюджет — на любом устройстве.</p>
+
+        <div class="tabs auth-tabs" id="authTabs" role="tablist">
+          <span class="seg-ind" aria-hidden="true"></span>
+          <button type="button" class="tab is-active" data-mode="login">Вход</button>
+          <button type="button" class="tab" data-mode="register">Регистрация</button>
+        </div>
+
+        <label class="field" data-only="register">
+          <span class="field-label">Имя / ник</span>
+          <input id="aName" type="text" maxlength="40" autocomplete="nickname" placeholder="Как тебя называть?">
+        </label>
+        <label class="field" data-only="login register forgot">
+          <span class="field-label">Почта</span>
+          <input id="aEmail" type="email" autocomplete="email" placeholder="you@mail.ru" required>
+          <small class="field-error">Введите корректную почту</small>
+        </label>
+        <label class="field" data-only="login register reset">
+          <span class="field-label" id="aPassLabel">Пароль</span>
+          <span class="pass-wrap">
+            <input id="aPass" type="password" minlength="6" autocomplete="current-password" placeholder="Минимум 6 символов" required>
+            <button type="button" class="pass-eye" id="aEye" aria-label="Показать пароль"><svg class="ico"><use href="#i-eye"/></svg></button>
+          </span>
+          <small class="field-error">Пароль — минимум 6 символов</small>
+        </label>
+
+        <p class="auth-msg" id="authMsg" role="status"></p>
+
+        <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span>Войти</span></button>
+        <button type="button" class="link-btn" id="authForgot" data-only="login">Забыли пароль?</button>
+        <button type="button" class="link-btn" id="authBack" data-only="forgot reset">← Назад ко входу</button>
+
+        <div class="auth-local" id="authLocal">
+          <span class="stitch" aria-hidden="true"></span>
+          <p id="authLocalText">Можно работать и без аккаунта — данные останутся только на этом устройстве.</p>
+          <button type="button" class="btn btn-ghost btn-sm" id="authLocalBtn"><span>Без аккаунта</span></button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
