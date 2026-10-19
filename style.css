@@ -1272,6 +1272,7 @@ kbd {
   visibility: hidden;
   transition: opacity var(--t-med) var(--ease-out), backdrop-filter var(--t-med) var(--ease-out), -webkit-backdrop-filter var(--t-med) var(--ease-out), visibility 0s linear var(--t-med);
 }
+.overlay:not(.open) { pointer-events: none; }
 .overlay.open {
   opacity: 1;
   visibility: visible;
@@ -1335,7 +1336,8 @@ kbd {
 
 .tab-panels { display: grid; }
 .tab-panel { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 14px; visibility: hidden; opacity: 0; transform: translateX(14px); transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out), visibility 0s linear var(--t-med); }
-.tab-panel.is-active { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
+/* inherit, а не visible: иначе вкладка закрытого окна перехватывает клики */
+.tab-panel.is-active { visibility: inherit; opacity: 1; transform: none; transition-delay: 0s; }
 .panel-hint { margin: 0; font-size: 13px; color: var(--text-dim); }
 
 .space-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
