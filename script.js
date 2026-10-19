@@ -29,8 +29,8 @@
 (function () {
   'use strict';
 
-  const SUPABASE_URL = '';       // например 'https://abcdxyz.supabase.co'
-  const SUPABASE_ANON_KEY = '';  // ключ «anon public»
+  const SUPABASE_URL = 'https://vdyoqfsvtyfqmskjbqqi.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_3dgOpb06nr4Do42Obw61Ew_WQf_11XK'; // публичный ключ (publishable)
   const TABLE = 'forge_data';
 
   const KEYS = {
