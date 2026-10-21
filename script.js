@@ -1,37 +1,20 @@
 /* =========================================================
    EVIL'S FORGE — кузница косплея (CRUD)
    задачи · проекты-персонажи · этапы · материалы и бюджет
-   аккаунты и синхронизация между устройствами (Supabase)
+   аккаунты и синхронизация между устройствами
    =========================================================
 
-   КАК ВКЛЮЧИТЬ РЕГИСТРАЦИЮ (один раз, бесплатно):
-   1. Зайди на https://supabase.com → New project.
-   2. SQL Editor → New query → вставь и выполни:
-
-      create table public.forge_data (
-        user_id uuid primary key references auth.users(id) on delete cascade,
-        data jsonb not null default '{}'::jsonb,
-        updated_at timestamptz not null default now()
-      );
-      alter table public.forge_data enable row level security;
-      create policy "own select" on public.forge_data for select using (auth.uid() = user_id);
-      create policy "own insert" on public.forge_data for insert with check (auth.uid() = user_id);
-      create policy "own update" on public.forge_data for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-      alter publication supabase_realtime add table public.forge_data;
-
-   3. Project Settings → API: скопируй «Project URL» и ключ «anon public»
-      в две константы ниже.
-   4. Authentication → URL Configuration → Site URL: адрес, где лежит сайт
-      (нужен для писем подтверждения и сброса пароля).
-   Ключ anon — публичный по задумке: доступ к данным защищён правилами
-   выше, каждый пользователь видит только свою строку.
+   Аккаунты и данные хранятся в Neon (Postgres), доступ к ним —
+   через наш API на Vercel (папка api/): регистрация, вход, выход
+   и чтение/запись данных. Сессия — защищённая httpOnly-cookie.
+   Если сайт открыт без сервера (файлом или на другом хостинге),
+   трекер работает локально, без аккаунта.
    ========================================================= */
 (function () {
   'use strict';
 
-  const SUPABASE_URL = 'https://vdyoqfsvtyfqmskjbqqi.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_3dgOpb06nr4Do42Obw61Ew_WQf_11XK'; // публичный ключ (publishable)
-  const TABLE = 'forge_data';
+  const API = 'api';           // относительный путь: работает на любом адресе Vercel
+  const POLL_MS = 20000;       // как часто проверять правки с других устройств
 
   const KEYS = {
     tasks: 'evilsforge.tasks',
@@ -159,14 +142,11 @@
     authSub: $('#authSub'),
     authMsg: $('#authMsg'),
     authSubmit: $('#authSubmit'),
-    authForgot: $('#authForgot'),
-    authBack: $('#authBack'),
     authLocalBtn: $('#authLocalBtn'),
     authLocalText: $('#authLocalText'),
     aName: $('#aName'),
     aEmail: $('#aEmail'),
     aPass: $('#aPass'),
-    aPassLabel: $('#aPassLabel'),
     aEye: $('#aEye'),
 
     userBtn: $('#userBtn'),
@@ -207,7 +187,7 @@
 
   // где лежат данные: 'local' — только это устройство, 'cloud' — аккаунт
   const store = { mode: 'local', userId: null };
-  const cloud = { client: null, user: null, channel: null, timer: 0, pushing: false, pending: false, lastPushed: null, recovering: false };
+  const cloud = { available: null, user: null, timer: 0, poll: 0, pushing: false, pending: false, syncing: false, lastPushed: null };
 
   /* ---------- Утилиты ---------- */
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -1406,7 +1386,7 @@
   el.addBtn.addEventListener('click', () => openTaskModal(null));
 
   /* =========================================================
-     Облако: синхронизация
+     Облако: синхронизация через наш API (Vercel + Neon)
      ========================================================= */
   const SYNC_TEXT = {
     local: 'Данные только на этом устройстве',
@@ -1415,8 +1395,25 @@
     offline: 'Нет связи — сохраню, когда появится сеть',
     error: 'Не удалось синхронизировать'
   };
-  const cloudConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
-  const cloudReady = () => cloudConfigured() && !!(window.supabase && window.supabase.createClient);
+  const cloudReady = () => cloud.available === true;
+
+  // запрос к API; бросает ошибку с кодом из ответа сервера
+  async function api(path, { method = 'GET', body } = {}) {
+    const res = await fetch(`${API}/${path}`, {
+      method,
+      credentials: 'same-origin',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* не JSON */ }
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `http_${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
 
   function setSync(status, text) {
     el.syncDot.dataset.status = status;
@@ -1438,13 +1435,14 @@
     cloud.pushing = true;
     const userId = cloud.user.id;
     const updated_at = new Date(state.updatedAt || Date.now()).toISOString();
-    let error = null;
+    let failed = null;
     try {
-      ({ error } = await cloud.client.from(TABLE).upsert({ user_id: userId, data: { tasks: state.tasks, projects: state.projects }, updated_at }));
-    } catch (e) { error = e; }
+      await api('data', { method: 'PUT', body: { data: { tasks: state.tasks, projects: state.projects }, updated_at } });
+    } catch (e) { failed = e; }
     cloud.pushing = false;
     if (!cloud.user || cloud.user.id !== userId) return;
-    if (error) {
+    if (failed) {
+      if (failed.status === 401) { sessionLost(); return; }
       setSync(navigator.onLine ? 'error' : 'offline');
       return;
     }
@@ -1454,10 +1452,10 @@
 
   async function pull() {
     try {
-      const { data, error } = await cloud.client.from(TABLE).select('data, updated_at').eq('user_id', cloud.user.id).maybeSingle();
-      if (error) throw error;
-      return { ok: true, row: data };
+      const row = await api('data');
+      return { ok: true, row: row && row.data ? row : null };
     } catch (e) {
+      if (e.status === 401) { sessionLost(); return { ok: false, row: null }; }
       setSync(navigator.onLine ? 'error' : 'offline');
       return { ok: false, row: null };
     }
@@ -1479,14 +1477,35 @@
   }
 
   async function syncNow(notify) {
-    if (!cloud.user) return;
-    setSync('syncing');
-    const res = await pull();
-    if (!res.ok) return;
-    if (!applyRemote(res.row, notify)) {
-      const remoteTs = res.row ? Date.parse(res.row.updated_at) || 0 : 0;
-      if ((state.updatedAt || 0) > remoteTs) push(); else setSync('synced');
+    if (!cloud.user || cloud.syncing) return;
+    cloud.syncing = true;
+    try {
+      const res = await pull();
+      if (!res.ok) return;
+      if (!applyRemote(res.row, notify)) {
+        const remoteTs = res.row ? Date.parse(res.row.updated_at) || 0 : 0;
+        if ((state.updatedAt || 0) > remoteTs) push();
+        else if (!cloud.timer && !cloud.pushing) setSync('synced');
+      }
+    } finally {
+      cloud.syncing = false;
     }
+  }
+
+  // данные, оставшиеся в этом браузере: прошлый аккаунт или локальный режим
+  function deviceData() {
+    let best = null;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith('evilsforge.u.')) continue;
+        const c = readJSON(key);
+        if (c && Array.isArray(c.tasks) && c.tasks.length && (!best || (c.updatedAt || 0) > (best.updatedAt || 0))) best = c;
+      }
+    } catch (e) { /* ignore */ }
+    if (best) return best;
+    const tasks = readJSON(KEYS.tasks);
+    return Array.isArray(tasks) && tasks.length ? { tasks, projects: readJSON(KEYS.projects) || [] } : null;
   }
 
   async function startCloudUser(user) {
@@ -1508,7 +1527,7 @@
     const res = await pull();
     if (!cloud.user || cloud.user.id !== user.id || !res.ok) return;
 
-    if (res.row && res.row.data) {
+    if (res.row) {
       const remoteTs = Date.parse(res.row.updated_at) || 0;
       if (!cache || remoteTs > state.updatedAt) {
         applyData(res.row.data);
@@ -1524,9 +1543,9 @@
       }
     } else if (!cache) {
       // новый аккаунт: забираем задачи этого устройства или даём примеры
-      const legacyTasks = readJSON(KEYS.tasks);
-      if (Array.isArray(legacyTasks) && legacyTasks.length) {
-        applyData({ tasks: legacyTasks, projects: readJSON(KEYS.projects) || [] });
+      const local = deviceData();
+      if (local) {
+        applyData(local);
         toast('Задачи с этого устройства перенесены в аккаунт', { type: 'success' });
       } else {
         applyData(demoData(true));
@@ -1536,24 +1555,20 @@
     } else {
       push();
     }
-
-    subscribeRealtime(user.id);
+    startPolling();
   }
 
-  function subscribeRealtime(userId) {
-    if (cloud.channel) cloud.client.removeChannel(cloud.channel);
-    cloud.channel = cloud.client
-      .channel('forge-' + userId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: TABLE, filter: `user_id=eq.${userId}` }, payload => {
-        const row = payload.new;
-        if (!row || row.updated_at === cloud.lastPushed) return;
-        applyRemote(row, true);
-      })
-      .subscribe();
+  // проверяем правки с других устройств, пока вкладка открыта
+  function startPolling() {
+    clearInterval(cloud.poll);
+    cloud.poll = setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) syncNow(true);
+    }, POLL_MS);
   }
 
   function endCloudUser() {
-    if (cloud.channel) { cloud.client.removeChannel(cloud.channel); cloud.channel = null; }
+    clearInterval(cloud.poll);
+    cloud.poll = 0;
     clearTimeout(cloud.timer);
     cloud.timer = 0;
     cloud.user = null;
@@ -1568,11 +1583,18 @@
     showAuth('login');
   }
 
+  // сессия истекла или cookie удалена — просим войти снова
+  function sessionLost() {
+    if (!cloud.user) return;
+    endCloudUser();
+    authMessage('Сессия закончилась — войди снова.', 'info');
+  }
+
   async function signOut() {
     closeUserMenu();
     if (!cloud.user) { showAuth('login'); return; }
     if (cloud.timer) { clearTimeout(cloud.timer); cloud.timer = 0; await push(); }
-    try { await cloud.client.auth.signOut(); } catch (e) { /* ignore */ }
+    try { await api('auth/logout', { method: 'POST', body: {} }); } catch (e) { /* ignore */ }
     endCloudUser();
   }
 
@@ -1597,9 +1619,7 @@
      ========================================================= */
   const AUTH_TEXT = {
     login: { title: 'Вход в кузницу', sub: 'Твои костюмы, этапы и бюджет — на любом устройстве.', submit: 'Войти' },
-    register: { title: 'Новый мастер', sub: 'Аккаунт хранит твои данные в облаке и открывает их на любом устройстве.', submit: 'Создать аккаунт' },
-    forgot: { title: 'Забыли пароль?', sub: 'Пришлём на почту ссылку для нового пароля.', submit: 'Отправить ссылку' },
-    reset: { title: 'Новый пароль', sub: 'Придумай новый пароль для своего аккаунта.', submit: 'Сохранить пароль' }
+    register: { title: 'Новый мастер', sub: 'Аккаунт хранит твои данные в облаке и открывает их на любом устройстве.', submit: 'Создать аккаунт' }
   };
   let authMode = 'login';
   let galleryBuilt = false;
@@ -1627,23 +1647,18 @@
     el.authTitle.textContent = t.title;
     el.authSub.textContent = t.sub;
     $('span', el.authSubmit).textContent = t.submit;
-    el.aPassLabel.textContent = mode === 'reset' ? 'Новый пароль' : 'Пароль';
     el.aPass.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
     $$('.tab', el.authTabs).forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
     $$('.field.invalid', el.authForm).forEach(f => f.classList.remove('invalid'));
     requestAnimationFrame(() => moveInd(el.authTabs));
 
-    if (!cloudConfigured()) {
-      authMessage('Облако ещё не подключено: вход заработает после настройки Supabase (инструкция в начале script.js).', 'info');
-      el.authSubmit.disabled = true;
-    } else if (!cloudReady()) {
-      authMessage('Не удалось загрузить модуль входа — проверь интернет и обнови страницу.', 'error');
+    if (cloud.available === false) {
+      authMessage('Сервер аккаунтов недоступен — проверь интернет и обнови страницу. Пока можно работать без аккаунта.', 'info');
       el.authSubmit.disabled = true;
     } else {
       authMessage('');
       el.authSubmit.disabled = false;
     }
-    el.authLocalBtn.parentElement.hidden = mode === 'reset';
   }
 
   function showAuth(mode = 'login') {
@@ -1654,7 +1669,7 @@
     el.auth.hidden = false;
     setAuthMode(mode);
     setTimeout(() => moveInd(el.authTabs), 350);
-    setTimeout(() => (mode === 'reset' ? el.aPass : el.aEmail).focus(), 120);
+    setTimeout(() => el.aEmail.focus(), 120);
   }
 
   function hideAuth() {
@@ -1668,26 +1683,26 @@
     requestAnimationFrame(moveAllInd);
   }
 
+  const AUTH_ERRORS = {
+    invalid_credentials: 'Неверная почта или пароль',
+    email_taken: 'Эта почта уже зарегистрирована — войди',
+    invalid_email: 'Похоже, почта указана с ошибкой',
+    weak_password: 'Пароль слишком короткий — минимум 6 символов',
+    password_too_long: 'Пароль слишком длинный',
+    too_many_attempts: 'Слишком много попыток — подожди 15 минут',
+    server_error: 'Ошибка сервера — попробуй ещё раз чуть позже'
+  };
   function translateAuthError(err) {
-    const m = String((err && (err.message || err.error_description)) || err || '');
-    if (/invalid login credentials/i.test(m)) return 'Неверная почта или пароль';
-    if (/already registered|already exists/i.test(m)) return 'Эта почта уже зарегистрирована — войди';
-    if (/email not confirmed/i.test(m)) return 'Сначала подтверди почту — письмо уже в ящике';
-    if (/password should be at least/i.test(m)) return 'Пароль слишком короткий';
-    if (/rate limit|too many/i.test(m)) return 'Слишком много попыток — подожди минуту';
-    if (/failed to fetch|network/i.test(m)) return 'Нет связи с сервером';
-    if (/invalid email|email address .* is invalid/i.test(m)) return 'Похоже, почта указана с ошибкой';
-    return m || 'Что-то пошло не так';
+    const code = String((err && err.message) || '');
+    if (AUTH_ERRORS[code]) return AUTH_ERRORS[code];
+    if (/failed to fetch|network/i.test(code)) return 'Нет связи с сервером';
+    return 'Что-то пошло не так';
   }
-
-  const redirectUrl = () => (location.protocol.startsWith('http') ? location.origin + location.pathname : undefined);
 
   el.authTabs.addEventListener('click', e => {
     const tab = e.target.closest('.tab');
     if (tab && tab.dataset.mode !== authMode) setAuthMode(tab.dataset.mode);
   });
-  el.authForgot.addEventListener('click', () => setAuthMode('forgot'));
-  el.authBack.addEventListener('click', () => { cloud.recovering = false; setAuthMode('login'); });
   el.authLocalBtn.addEventListener('click', startLocal);
   el.aEye.addEventListener('click', () => {
     const show = el.aPass.type === 'password';
@@ -1702,45 +1717,22 @@
     if (!cloudReady()) return;
     const email = el.aEmail.value.trim();
     const password = el.aPass.value;
-    if (authMode !== 'reset' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { invalid(el.aEmail); return; }
-    if (authMode !== 'forgot' && password.length < 6) { invalid(el.aPass); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { invalid(el.aEmail); return; }
+    if (password.length < 6) { invalid(el.aPass); return; }
 
     el.authSubmit.disabled = true;
     el.authSubmit.classList.add('busy');
     authMessage('');
-    const auth = cloud.client.auth;
     try {
-      if (authMode === 'login') {
-        const { data, error } = await auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        startCloudUser(data.user);
-      } else if (authMode === 'register') {
-        const { data, error } = await auth.signUp({
-          email, password,
-          options: { data: { name: el.aName.value.trim() }, emailRedirectTo: redirectUrl() }
-        });
-        if (error) throw error;
-        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          throw new Error('already registered');
-        }
-        if (data.session) {
-          startCloudUser(data.session.user);
-          toast('Добро пожаловать в кузницу!', { type: 'success' });
-        } else {
-          setAuthMode('login');
-          authMessage(`Готово! Письмо для подтверждения отправлено на ${email}. Подтверди почту и войди.`, 'ok');
-        }
-      } else if (authMode === 'forgot') {
-        const { error } = await auth.resetPasswordForEmail(email, { redirectTo: redirectUrl() });
-        if (error) throw error;
-        authMessage('Ссылка для сброса пароля отправлена на почту.', 'ok');
-      } else if (authMode === 'reset') {
-        const { data, error } = await auth.updateUser({ password });
-        if (error) throw error;
-        cloud.recovering = false;
-        toast('Пароль обновлён', { type: 'success' });
-        startCloudUser(data.user);
+      if (authMode === 'register') {
+        const { user } = await api('auth/register', { method: 'POST', body: { email, password, name: el.aName.value.trim() } });
+        await startCloudUser(user);
+        toast('Добро пожаловать в кузницу!', { type: 'success' });
+      } else {
+        const { user } = await api('auth/login', { method: 'POST', body: { email, password } });
+        await startCloudUser(user);
       }
+      el.aPass.value = '';
     } catch (err) {
       authMessage(translateAuthError(err), 'error');
     } finally {
@@ -1752,7 +1744,7 @@
   /* ---------- Меню аккаунта ---------- */
   function updateUserUi() {
     const u = cloud.user;
-    const name = u ? ((u.user_metadata && u.user_metadata.name) || (u.email || '').split('@')[0] || 'Мастер') : 'Гость';
+    const name = u ? (u.name || (u.email || '').split('@')[0] || 'Мастер') : 'Гость';
     const initial = (name.trim().charAt(0) || '?').toUpperCase();
     el.userAvatar.textContent = initial;
     el.umAvatar.textContent = initial;
@@ -1805,30 +1797,22 @@
     setSync('local');
     const wantsLocal = readMode() === 'local';
 
-    if (cloudReady()) {
-      cloud.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-      });
-      cloud.client.auth.onAuthStateChange((event, session) => {
-        // вызовы Supabase внутри обработчика откладываем, чтобы не заблокировать клиент
-        setTimeout(() => {
-          if (event === 'PASSWORD_RECOVERY') { cloud.recovering = true; showAuth('reset'); return; }
-          if (event === 'SIGNED_OUT') { if (cloud.user) endCloudUser(); return; }
-          if (session && session.user && !cloud.recovering && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-            startCloudUser(session.user);
-          }
-        }, 0);
-      });
-      let session = null;
-      try { ({ data: { session } } = await cloud.client.auth.getSession()); } catch (e) { /* ignore */ }
-      if (session) startCloudUser(session.user);
-      else if (wantsLocal) startLocal();
-      else showAuth('login');
-    } else if (wantsLocal) {
-      startLocal();
+    // есть ли сервер аккаунтов и открыта ли сессия
+    let user = null;
+    if (location.protocol.startsWith('http')) {
+      try {
+        ({ user } = await api('auth/me'));
+        cloud.available = true;
+      } catch (e) {
+        cloud.available = false;
+      }
     } else {
-      showAuth('login');
+      cloud.available = false;
     }
+
+    if (user) startCloudUser(user);
+    else if (wantsLocal) startLocal();
+    else showAuth('login');
 
     moveAllInd();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveAllInd);

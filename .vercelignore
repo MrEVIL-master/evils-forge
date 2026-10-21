@@ -1,0 +1,5 @@
+landing
+scripts
+node_modules
+.git
+.env*

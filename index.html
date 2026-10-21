@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Russo+One&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script>
     // Тема и пространство ставятся до первой отрисовки, чтобы не было вспышки
     (function () {
@@ -448,13 +448,13 @@
           <span class="field-label">Имя / ник</span>
           <input id="aName" type="text" maxlength="40" autocomplete="nickname" placeholder="Как тебя называть?">
         </label>
-        <label class="field" data-only="login register forgot">
+        <label class="field">
           <span class="field-label">Почта</span>
           <input id="aEmail" type="email" autocomplete="email" placeholder="you@mail.ru" required>
           <small class="field-error">Введите корректную почту</small>
         </label>
-        <label class="field" data-only="login register reset">
-          <span class="field-label" id="aPassLabel">Пароль</span>
+        <label class="field">
+          <span class="field-label">Пароль</span>
           <span class="pass-wrap">
             <input id="aPass" type="password" minlength="6" autocomplete="current-password" placeholder="Минимум 6 символов" required>
             <button type="button" class="pass-eye" id="aEye" aria-label="Показать пароль"><svg class="ico"><use href="#i-eye"/></svg></button>
@@ -465,8 +465,6 @@
         <p class="auth-msg" id="authMsg" role="status"></p>
 
         <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span>Войти</span></button>
-        <button type="button" class="link-btn" id="authForgot" data-only="login">Забыли пароль?</button>
-        <button type="button" class="link-btn" id="authBack" data-only="forgot reset">← Назад ко входу</button>
 
         <div class="auth-local" id="authLocal">
           <span class="stitch" aria-hidden="true"></span>
@@ -479,7 +477,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>
