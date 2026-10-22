@@ -2061,7 +2061,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
 
 .sp-stage {
   position: relative;
-  width: min(360px, 82vw);
+  width: min(560px, 94vw);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2083,26 +2083,58 @@ input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
 .is-project .sp-kanji { -webkit-text-stroke-color: rgba(47, 240, 230, .75); }
 @keyframes spKanji { from { opacity: 0; scale: 1.8; rotate: -12deg; filter: blur(10px); } }
 
-/* арт появляется из разреза: сначала тонкая щель, затем раскрывается */
-.sp-print {
+/* самурай без фона: раскрывается из диагонального разреза и парит */
+.sp-hero {
   position: relative;
-  width: min(280px, 66vw);
-  aspect-ratio: 4 / 5;
-  padding: 8px;
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 6px;
-  box-shadow: 10px 10px 0 var(--magenta), 18px 18px 0 var(--blue);
-  rotate: -3deg;
-  animation: spPrint .85s .12s var(--ease-spring) both;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: min(58vh, 500px);
+  max-width: 92vw;
+  animation: spHero .9s .12s var(--ease-spring) both;
 }
-.is-project .sp-print { box-shadow: 10px 10px 0 var(--cyan), 18px 18px 0 var(--magenta); }
-.sp-print img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
-@keyframes spPrint {
-  0% { clip-path: polygon(0 64%, 100% 34%, 100% 34%, 0 64%); scale: 1.15; rotate: -14deg; opacity: 1; }
-  45% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
-  100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); scale: 1; rotate: -3deg; }
+.sp-hero img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 92vw;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 1.5px var(--ink))
+    drop-shadow(0 0 1.5px var(--ink))
+    drop-shadow(5px 5px 0 rgba(232, 23, 93, .85))
+    drop-shadow(0 0 26px rgba(255, 47, 125, .5));
+  animation: spFloat 3.2s 1s ease-in-out infinite;
 }
+.is-project .sp-hero img {
+  filter:
+    drop-shadow(0 0 1.5px var(--ink))
+    drop-shadow(0 0 1.5px var(--ink))
+    drop-shadow(5px 5px 0 rgba(47, 240, 230, .85))
+    drop-shadow(0 0 30px rgba(47, 240, 230, .55));
+}
+/* чернильная тень-лужа под ногами */
+.sp-ground {
+  position: absolute;
+  left: 50%;
+  bottom: -2%;
+  width: 72%;
+  height: 12%;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(11, 10, 20, .75), rgba(106, 58, 162, .35) 60%, transparent);
+  filter: blur(4px);
+  animation: spGround .8s .3s var(--ease-out) both;
+}
+@keyframes spHero {
+  0% { clip-path: polygon(0 64%, 100% 34%, 100% 34%, 0 64%); scale: 1.12; translate: 0 18px; }
+  50% { clip-path: polygon(-20% -20%, 120% -20%, 120% 120%, -20% 120%); }
+  100% { clip-path: polygon(-20% -20%, 120% -20%, 120% 120%, -20% 120%); scale: 1; translate: 0 0; }
+}
+@keyframes spFloat { 50% { translate: 0 -10px; } }
+@keyframes spGround { from { opacity: 0; scale: .3 1; } }
 /* след клинка по арту */
 .sp-cut {
   position: absolute;
@@ -2115,6 +2147,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
   box-shadow: 0 0 14px #fff, 0 0 30px var(--cyan);
   rotate: -16deg;
   transform-origin: 0 50%;
+  z-index: 2;
   animation: spCut .7s .05s var(--ease-out) both;
 }
 @keyframes spCut {

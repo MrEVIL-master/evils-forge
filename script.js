@@ -1309,7 +1309,21 @@
   /* =========================================================
      Празднование: удар катаны по карточке и самурай с поздравлением
      ========================================================= */
-  const SAMURAI_ARTS = ['art-banner.jpg', 'art-fire.jpg', 'art-spirit.jpg', 'art-spirit-jump.jpg', 'art-ronin.jpg', 'art-flame.jpg'];
+  // самураи, вырезанные из артов (прозрачный фон); ключ — исходный арт для обложек персонажей
+  const SAMURAI = {
+    'art-banner.jpg': 'samurai/banner.webp',
+    'art-fire.jpg': 'samurai/fire.webp',
+    'art-spirit.jpg': 'samurai/spirit.webp',
+    'art-spirit-jump.jpg': 'samurai/spirit-jump.webp',
+    'art-ronin.jpg': 'samurai/ronin.webp',
+    'art-flame.jpg': 'samurai/flame.webp'
+  };
+  const SAMURAI_ARTS = Object.values(SAMURAI);
+
+  // подгружаем фигуры заранее, чтобы поздравление открывалось мгновенно
+  const preloadSamurai = () => SAMURAI_ARTS.forEach(f => { const i = new Image(); i.decoding = 'async'; i.src = `assets/${f}`; });
+  if ('requestIdleCallback' in window) requestIdleCallback(preloadSamurai, { timeout: 4000 });
+  else setTimeout(preloadSamurai, 2500);
   const TASK_CHEERS = [
     ['Выковано!', 'Чистый разрез'],
     ['Мастерски!', 'Клинок доволен'],
@@ -1325,8 +1339,9 @@
   };
   const pick = list => list[Math.floor(Math.random() * list.length)];
 
+  // обложка персонажа → его вырезанный самурай; иначе случайный, без повтора подряд
   function pickArt(preferred) {
-    if (preferred) return preferred;
+    if (preferred && SAMURAI[preferred]) return SAMURAI[preferred];
     const pool = SAMURAI_ARTS.filter(a => a !== lastArt);
     lastArt = pick(pool);
     return lastArt;
@@ -1430,7 +1445,11 @@
       <div class="sp-stage">
         <span class="sp-kanji" aria-hidden="true">${isProject ? '完成' : '見事'}</span>
         ${isProject ? '<span class="sp-shards" aria-hidden="true">' + Array.from({ length: 16 }, (_, i) => `<i style="--a:${i * 22.5}deg;--d:${120 + (i % 4) * 40}px;--dl:${(i % 5) * 40}ms"></i>`).join('') + '</span>' : ''}
-        <div class="sp-print"><img src="assets/${art}" alt=""><span class="sp-cut" aria-hidden="true"></span></div>
+        <div class="sp-hero">
+          <span class="sp-ground" aria-hidden="true"></span>
+          <img src="assets/${art}" alt="" decoding="async">
+          <span class="sp-cut" aria-hidden="true"></span>
+        </div>
         <div class="sp-banner">
           <b>${escapeHtml(title)}</b>
           <span>${escapeHtml(sub)}</span>
