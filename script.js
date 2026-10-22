@@ -1065,9 +1065,14 @@
       materials: ws ? state.draft.materials.filter(m => m.name.trim()).map(m => Object.assign({}, m, { name: m.name.trim() })) : []
     };
     let task;
+    let cheer = null;
     if (state.editingId) {
+      const prev = state.tasks.find(t => t.id === state.editingId);
+      const becameDone = prev && prev.status !== 'done' && data.status === 'done';
+      const projectWasDone = data.projectId ? projectDone(data.projectId) : false;
       task = updateTask(state.editingId, data);
-      toast('Задача перекована', { type: 'success' });
+      if (becameDone && task) cheer = () => celebrate(task, projectWasDone);
+      else toast('Задача перекована', { type: 'success' });
     } else {
       task = createTask(data);
       toast('Задача выкована', { type: 'success' });
@@ -1077,6 +1082,7 @@
     if (task && state.filter.project && task.projectId !== state.filter.project) state.filter.project = null;
     closeOverlay(el.taskOverlay);
     renderAll({ flashId: task && task.id });
+    if (cheer) setTimeout(cheer, 380);
   });
 
   /* ---------- Модалка проекта ---------- */
@@ -1199,7 +1205,7 @@
     if (sub.done && done === task.subtasks.length && task.status !== 'done') {
       toast('Все этапы готовы!', {
         type: 'success', action: 'В «Готово»',
-        onAction: () => { updateTask(task.id, { status: 'done' }); renderAll({ flashId: task.id }); }
+        onAction: () => completeTask(task, $(`.task[data-id="${task.id}"]`, el.board))
       });
     }
   }
@@ -1215,11 +1221,15 @@
     if (act === 'toggle') {
       const next = task.status === 'done' ? 'todo' : 'done';
       card.classList.toggle('is-done', next === 'done');
-      setTimeout(() => {
-        updateTask(task.id, { status: next });
-        renderAll({ flashId: task.id });
-        if (next === 'done') toast('Выковано! Задача выполнена', { type: 'success' });
-      }, reducedMotion ? 0 : 320);
+      if (next === 'done') {
+        // даём галочке прорисоваться, затем удар катаны
+        setTimeout(() => completeTask(task, card), reducedMotion ? 0 : 260);
+      } else {
+        setTimeout(() => {
+          updateTask(task.id, { status: next });
+          renderAll({ flashId: task.id });
+        }, reducedMotion ? 0 : 320);
+      }
     } else if (act === 'expand') {
       const open = !state.expanded.has(task.id);
       open ? state.expanded.add(task.id) : state.expanded.delete(task.id);
@@ -1288,10 +1298,187 @@
     const task = state.tasks.find(t => t.id === id);
     const status = body.dataset.drop;
     if (!task || task.status === status) return;
+    if (status === 'done') {
+      completeTask(task, $(`.task[data-id="${id}"]`, el.board));
+      return;
+    }
     updateTask(id, { status });
     renderAll({ flashId: id });
-    if (status === 'done') toast('Выковано! Задача выполнена', { type: 'success' });
   });
+
+  /* =========================================================
+     Празднование: удар катаны по карточке и самурай с поздравлением
+     ========================================================= */
+  const SAMURAI_ARTS = ['art-banner.jpg', 'art-fire.jpg', 'art-spirit.jpg', 'art-spirit-jump.jpg', 'art-ronin.jpg', 'art-flame.jpg'];
+  const TASK_CHEERS = [
+    ['Выковано!', 'Чистый разрез'],
+    ['Мастерски!', 'Клинок доволен'],
+    ['Готово!', 'Ещё шаг к дефиле'],
+    ['見事!', 'Безупречная работа']
+  ];
+  let lastArt = '';
+  let celebration = null;
+
+  const projectDone = pid => {
+    const list = state.tasks.filter(t => t.projectId === pid);
+    return list.length > 0 && list.every(t => t.status === 'done');
+  };
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+
+  function pickArt(preferred) {
+    if (preferred) return preferred;
+    const pool = SAMURAI_ARTS.filter(a => a !== lastArt);
+    lastArt = pick(pool);
+    return lastArt;
+  }
+
+  // карточка разрезается по диагонали: блик клинка, искры, половинки разлетаются
+  function slashCard(card) {
+    return new Promise(resolve => {
+      card.classList.remove('dragging', 'flash');
+      const r = card.getBoundingClientRect();
+      if (!r.width) { resolve(); return; }
+      const yL = 0.66, yR = 0.3; // линия разреза: слева ниже, справа выше
+      const pieces = [];
+
+      const piece = clip => {
+        const c = card.cloneNode(true);
+        c.classList.add('cut-piece');
+        c.removeAttribute('draggable');
+        c.removeAttribute('tabindex');
+        c.setAttribute('aria-hidden', 'true');
+        Object.assign(c.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', clipPath: clip });
+        document.body.appendChild(c);
+        pieces.push(c);
+        return c;
+      };
+      const top = piece(`polygon(0 0, 100% 0, 100% ${yR * 100}%, 0 ${yL * 100}%)`);
+      const bottom = piece(`polygon(0 ${yL * 100}%, 100% ${yR * 100}%, 100% 100%, 0 100%)`);
+      card.style.visibility = 'hidden';
+
+      // геометрия линии разреза
+      const x0 = r.left, y0 = r.top + r.height * yL;
+      const x1 = r.right, y1 = r.top + r.height * yR;
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+      const nx = -uy, ny = ux; // нормаль: от верхней половинки к нижней
+      const ang = Math.atan2(y1 - y0, x1 - x0);
+      const ext = 60;
+
+      const blade = document.createElement('span');
+      blade.className = 'cut-blade';
+      Object.assign(blade.style, { left: (x0 - ux * ext) + 'px', top: (y0 - uy * ext - 3) + 'px', width: (len + ext * 2) + 'px' });
+      document.body.appendChild(blade);
+      pieces.push(blade);
+      blade.animate([
+        { transform: `rotate(${ang}rad) scaleX(0)`, opacity: 1 },
+        { transform: `rotate(${ang}rad) scaleX(1)`, opacity: 1, offset: 0.42 },
+        { transform: `rotate(${ang}rad) scaleX(1) scaleY(2.4)`, opacity: 0 }
+      ], { duration: 460, easing: 'cubic-bezier(.7, 0, .2, 1)' });
+
+      // искры вдоль разреза
+      for (let i = 0; i < 14; i++) {
+        const t = Math.random();
+        const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t;
+        const s = document.createElement('span');
+        s.className = 'cut-spark';
+        s.style.left = sx + 'px';
+        s.style.top = sy + 'px';
+        document.body.appendChild(s);
+        pieces.push(s);
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const dist = 30 + Math.random() * 70;
+        const dx = (nx * side + ux * (Math.random() - 0.5) * 1.6) * dist;
+        const dy = (ny * side + uy * (Math.random() - 0.5) * 1.6) * dist;
+        s.animate([
+          { transform: `translate(-50%, -50%) rotate(${ang}rad) scale(1)`, opacity: 1 },
+          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${ang + side}rad) scale(.2)`, opacity: 0 }
+        ], { duration: 420 + Math.random() * 300, delay: 120 + t * 120, easing: 'cubic-bezier(.2, .8, .3, 1)', fill: 'both' });
+      }
+
+      // половинки разлетаются и падают
+      const split = (el, sign, rot) => el.animate([
+        { transform: 'none', filter: 'brightness(1)', opacity: 1 },
+        { transform: 'none', filter: 'brightness(2.2)', opacity: 1, offset: 0.16 },
+        { transform: `translate(${nx * sign * 18}px, ${ny * sign * 18}px) rotate(${rot * 0.4}deg)`, filter: 'brightness(1.1)', opacity: 1, offset: 0.42 },
+        { transform: `translate(${nx * sign * 46 + sign * 24}px, ${ny * sign * 46 + 150}px) rotate(${rot}deg)`, filter: 'brightness(.9) blur(1px)', opacity: 0 }
+      ], { duration: 1050, delay: 120, easing: 'cubic-bezier(.45, 0, .7, .6)', fill: 'both' });
+      split(top, -1, -9);
+      split(bottom, 1, 7);
+      if (navigator.vibrate) { try { navigator.vibrate(25); } catch (e) { /* ignore */ } }
+
+      setTimeout(resolve, 300);
+      setTimeout(() => pieces.forEach(p => p.remove()), 1300);
+    });
+  }
+
+  // окно с артом-самураем
+  function showSamurai({ task, project }) {
+    if (celebration) celebration.close(true);
+    const isProject = !!project;
+    const art = pickArt(isProject ? project.art : '');
+    const [title, sub] = isProject ? ['Персонаж готов!', 'Все задачи выкованы'] : pick(TASK_CHEERS);
+    const detail = isProject
+      ? (project.convention ? `«${project.name}» готов. Впереди — ${project.convention}!` : `«${project.name}» готов к дефиле!`)
+      : `«${task.title}»`;
+
+    const node = document.createElement('div');
+    node.className = 'samurai-pop' + (isProject ? ' is-project' : '');
+    node.setAttribute('role', 'status');
+    node.innerHTML = `
+      <span class="sp-rays" aria-hidden="true"></span>
+      <div class="sp-stage">
+        <span class="sp-kanji" aria-hidden="true">${isProject ? '完成' : '見事'}</span>
+        ${isProject ? '<span class="sp-shards" aria-hidden="true">' + Array.from({ length: 16 }, (_, i) => `<i style="--a:${i * 22.5}deg;--d:${120 + (i % 4) * 40}px;--dl:${(i % 5) * 40}ms"></i>`).join('') + '</span>' : ''}
+        <div class="sp-print"><img src="assets/${art}" alt=""><span class="sp-cut" aria-hidden="true"></span></div>
+        <div class="sp-banner">
+          <b>${escapeHtml(title)}</b>
+          <span>${escapeHtml(sub)}</span>
+          <small>${escapeHtml(detail)}</small>
+        </div>
+        <p class="sp-hint">нажми, чтобы продолжить</p>
+      </div>`;
+    document.body.appendChild(node);
+
+    let closed = false;
+    const close = instant => {
+      if (closed) return;
+      closed = true;
+      clearTimeout(timer);
+      document.removeEventListener('keydown', onKey, true);
+      if (celebration && celebration.node === node) celebration = null;
+      if (instant) { node.remove(); return; }
+      node.classList.add('out');
+      setTimeout(() => node.remove(), 450);
+    };
+    const onKey = e => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); close(); } };
+    node.addEventListener('click', () => close());
+    document.addEventListener('keydown', onKey, true);
+    const timer = setTimeout(close, isProject ? 4600 : 2900);
+    celebration = { node, close };
+  }
+
+  function celebrate(task, projectWasDone) {
+    const pid = task.projectId;
+    const project = pid && !projectWasDone && projectDone(pid) ? projectById(pid) : null;
+    if (reducedMotion) {
+      toast(project ? `Персонаж «${project.name}» готов!` : 'Выковано! Задача выполнена', { type: 'success' });
+      return;
+    }
+    showSamurai({ task, project });
+  }
+
+  // отметить задачу выполненной с праздником (card — карточка на доске, если есть)
+  async function completeTask(task, card) {
+    const projectWasDone = task.projectId ? projectDone(task.projectId) : false;
+    if (card && !reducedMotion) {
+      await slashCard(card);
+      card.remove(); // новая карточка появится в «Готово», а не прилетит со старого места
+    }
+    updateTask(task.id, { status: 'done' });
+    renderAll({ flashId: task.id });
+    setTimeout(() => celebrate(task, projectWasDone), card && !reducedMotion ? 320 : 0);
+  }
 
   /* ---------- Тосты ---------- */
   function toast(message, { type = 'info', action, onAction, duration = 5000 } = {}) {
