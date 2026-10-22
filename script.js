@@ -161,6 +161,7 @@
     umSyncNow: $('#umSyncNow'),
     umLogin: $('#umLogin'),
     umLogout: $('#umLogout'),
+    umReset: $('#umReset'),
     artsToggle: $('#artsToggle'),
 
     confirmOverlay: $('#confirmOverlay'),
@@ -1974,6 +1975,28 @@
   });
   el.umLogin.addEventListener('click', () => showAuth('login'));
   el.umLogout.addEventListener('click', signOut);
+
+  // удалить всех персонажей и задачи (с подтверждением и отменой)
+  el.umReset.addEventListener('click', () => {
+    closeUserMenu();
+    const nt = state.tasks.length, np = state.projects.length;
+    if (!nt && !np) { toast('Доска уже пустая'); return; }
+    askConfirm({
+      title: 'Начать с чистого листа?',
+      html: `Будут удалены <b>${np} ${plural(np, ['персонаж', 'персонажа', 'персонажей'])}</b> и <b>${nt} ${plural(nt, ['задача', 'задачи', 'задач'])}</b>${cloud.user ? ' — на всех устройствах' : ''}. Отменить можно в течение нескольких секунд.`,
+      button: 'Очистить',
+      onConfirm: () => {
+        const snap = { tasks: state.tasks, projects: state.projects };
+        applyData({ tasks: [], projects: [] }, { reset: true });
+        save();
+        renderAll();
+        toast('Доска очищена', {
+          type: 'danger', action: 'Отменить', duration: 7000,
+          onAction: () => { applyData(snap); save(); renderAll(); }
+        })
+      }
+    });
+  });
   el.umSyncNow.addEventListener('click', () => { syncNow(true); });
 
   el.artsToggle.checked = root.dataset.arts !== 'off';
