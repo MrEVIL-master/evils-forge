@@ -578,6 +578,12 @@
 
   function emptyHtml(status) {
     const filtered = state.filter.query.trim() || state.filter.priority !== 'all' || (state.filter.work !== 'all' && state.space !== 'personal');
+    const fresh = !filtered && status === 'todo' && scopeTasks().length === 0;
+    if (fresh) {
+      return `<div class="empty empty-fresh"><span class="empty-kanji">${EMPTY_KANJI[status]}</span>
+        <span>Здесь пока пусто — выкуй первую задачу</span>
+        <button type="button" class="btn btn-primary btn-sm empty-add" data-empty="task"><svg class="ico"><use href="#i-plus"/></svg><span>Первая задача</span></button></div>`;
+    }
     const text = filtered ? 'Ничего не найдено' : (status === 'done' ? 'Пока ничего не выковано' : 'Пусто — перетащи задачу сюда');
     return `<div class="empty"><span class="empty-kanji">${EMPTY_KANJI[status]}</span><span>${text}</span></div>`;
   }
@@ -1244,6 +1250,10 @@
     }
   });
 
+  el.board.addEventListener('click', e => {
+    if (e.target.closest('[data-empty="task"]')) openTaskModal(null);
+  });
+
   el.board.addEventListener('dblclick', e => {
     const card = e.target.closest('.task');
     if (!card || e.target.closest('[data-act]')) return;
@@ -1698,22 +1708,6 @@
     }
   }
 
-  // данные, оставшиеся в этом браузере: прошлый аккаунт или локальный режим
-  function deviceData() {
-    let best = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key || !key.startsWith('evilsforge.u.')) continue;
-        const c = readJSON(key);
-        if (c && Array.isArray(c.tasks) && c.tasks.length && (!best || (c.updatedAt || 0) > (best.updatedAt || 0))) best = c;
-      }
-    } catch (e) { /* ignore */ }
-    if (best) return best;
-    const tasks = readJSON(KEYS.tasks);
-    return Array.isArray(tasks) && tasks.length ? { tasks, projects: readJSON(KEYS.projects) || [] } : null;
-  }
-
   async function startCloudUser(user) {
     if (cloud.user && cloud.user.id === user.id) { hideAuth(); return; }
     cloud.user = user;
@@ -1748,14 +1742,8 @@
         setSync('synced');
       }
     } else if (!cache) {
-      // новый аккаунт: забираем задачи этого устройства или даём примеры
-      const local = deviceData();
-      if (local) {
-        applyData(local);
-        toast('Задачи с этого устройства перенесены в аккаунт', { type: 'success' });
-      } else {
-        applyData(demoData(true));
-      }
+      // новый аккаунт: чистый лист — персонажей и задачи человек добавляет сам
+      applyData({ tasks: [], projects: [] });
       save();
       renderAll();
     } else {

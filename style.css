@@ -2206,3 +2206,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
   70% { opacity: 1; }
   100% { transform: rotate(var(--a)) translateX(var(--d)) scale(1); opacity: 0; }
 }
+
+/* пустая доска нового аккаунта */
+.empty-fresh { gap: 10px; padding: 34px 16px 30px; }
+.empty-fresh .empty-add { margin-top: 6px; }
