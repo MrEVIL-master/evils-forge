@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowDown } from 'lucide-react'
 import { TRACKER_URL, asset, motionOff } from '@/lib/site'
-import { ArtFrame, Shot } from '@/components/Frame'
+import { Shot } from '@/components/Frame'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useHeroParallax } from '@/components/Parallax'
@@ -61,9 +61,6 @@ export function Hero() {
           </div>
         </motion.div>
         <motion.div className="hero-shot-wrap" style={px.shot}>
-        <motion.div className="hero-art" aria-hidden style={px.art}>
-          <ArtFrame name="art-flame" alt="" sizes="200px" priority />
-        </motion.div>
         <motion.div initial={boot ? { clipPath: 'inset(0 0 100% 0)' } : false} animate={{ clipPath: 'inset(-16px 0 0% 0)' }} transition={t(0.45, 0.25)}>
           <Shot
             className="hero-shot"

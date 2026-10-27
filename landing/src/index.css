@@ -306,9 +306,5 @@ img { display: block; max-width: 100%; }
 /* ---------- Параллакс и прогресс ---------- */
 .progress { position: fixed; left: 0; right: 0; top: var(--hud-h); z-index: 51; height: 2px; background: var(--primary); transform-origin: 0 50%; pointer-events: none; }
 .hero-shot-wrap { position: relative; isolation: isolate; }
-.hero-art { position: absolute; z-index: -1; right: -40px; bottom: -44px; width: 24%; aspect-ratio: 3 / 4; pointer-events: none; }
-.hero-art .frame { height: 100%; }
-.hero-art .frame::after { --k: var(--accent); }
 .frame > img.px { will-change: transform; }
 .stop-visual > div { min-width: 0; }
-@media (max-width: 999px) { .hero-art { display: none; } }

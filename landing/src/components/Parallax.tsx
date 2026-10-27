@@ -24,7 +24,7 @@ export function useInnerParallax(amount = 7) {
   return { ref, style: off ? undefined : { y, scale: 1 + (amount * 2.4) / 100 } }
 }
 
-// Hero: сетка уходит вглубь, текст чуть поднимается и гаснет, снимок отстаёт — три плана глубины
+// Hero: сетка уходит вглубь, текст чуть поднимается и гаснет, снимок отстаёт
 export function useHeroParallax() {
   const ref = useRef<HTMLElement>(null)
   const off = useOff()
@@ -33,9 +33,8 @@ export function useHeroParallax() {
   const text = useTransform(scrollYProgress, [0, 1], [0, -60])
   const fade = useTransform(scrollYProgress, [0, 1], [1, 0.35])
   const shot = useTransform(scrollYProgress, [0, 1], [0, 90])
-  const art = useTransform(scrollYProgress, [0, 1], [0, -140])
-  if (off) return { ref, grid: undefined, text: undefined, shot: undefined, art: undefined }
-  return { ref, grid: { y: grid }, text: { y: text, opacity: fade }, shot: { y: shot }, art: { y: art } }
+  if (off) return { ref, grid: undefined, text: undefined, shot: undefined }
+  return { ref, grid: { y: grid }, text: { y: text, opacity: fade }, shot: { y: shot } }
 }
 
 // Полоса прогресса чтения под шапкой
