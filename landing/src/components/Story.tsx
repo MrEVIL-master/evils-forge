@@ -2,6 +2,9 @@ import { motion } from 'motion/react'
 import { asset } from '@/lib/site'
 import { ArtFrame, Shot } from '@/components/Frame'
 import { Reveal, SectionHead, revealItem } from '@/components/Reveal'
+import { Parallax } from '@/components/Parallax'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 
 // «История одного костюма»: персонаж от идеи до выхода, на каждой остановке — арт и фрагмент трекера.
 // Пока нет фото процесса из мастерской — арты и снимки трекера на встроенном примере (с плашкой «Пример»).
@@ -50,13 +53,13 @@ export function Story() {
                 <span className="stop-num">{s.num}</span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
-                <div className="stop-tags">{s.tags.map(t => <span key={t}>{t}</span>)}</div>
+                <div className="stop-tags">{s.tags.map(t => <Badge key={t}>{t}</Badge>)}</div>
               </motion.div>
               <motion.div variants={revealItem} className={'wide' in s ? 'stop-visual wide' : 'stop-visual'}>
-                {!('wide' in s) && <ArtFrame name={s.art} alt="" className="art" sizes="(max-width: 899px) 40vw, 260px" />}
-                <Shot className="shot" src={asset(s.shot.src)} width={s.shot.w} height={s.shot.h} alt={s.shot.alt}
+                {!('wide' in s) && <Parallax speed={0.14}><ArtFrame name={s.art} alt="" className="art" parallax={6} sizes="(max-width: 899px) 40vw, 260px" /></Parallax>}
+                <Parallax speed={'wide' in s ? 0.05 : -0.06}><Shot className="shot" src={asset(s.shot.src)} width={s.shot.w} height={s.shot.h} alt={s.shot.alt}
                   srcSet={'set' in s.shot ? `${asset(`landing/${s.shot.set}-720.webp`)} 720w, ${asset(`landing/${s.shot.set}-1100.webp`)} 1100w` : undefined}
-                  sizes={'wide' in s ? '(max-width: 899px) 100vw, 680px' : '(max-width: 899px) 60vw, 420px'} />
+                  sizes={'wide' in s ? '(max-width: 899px) 100vw, 680px' : '(max-width: 899px) 60vw, 420px'} /></Parallax>
               </motion.div>
             </Reveal>
           ))}
@@ -66,14 +69,14 @@ export function Story() {
               <span className="stop-num">05</span>
               <h3>Закрой досье</h3>
               <p>Последний контракт закрыт — досье получает штамп. Костюм готов к выходу.</p>
-              <div className="stop-tags"><span>Готово</span></div>
+              <div className="stop-tags"><Badge variant="solid">Готово</Badge></div>
             </motion.div>
             <motion.div variants={revealItem} className="stop-visual">
-              <ArtFrame name="art-spirit-jump" alt="" className="art" sizes="(max-width: 899px) 40vw, 260px" />
-              <div className="stamp-card">
+              <Parallax speed={0.14}><ArtFrame name="art-spirit-jump" alt="" className="art" parallax={6} sizes="(max-width: 899px) 40vw, 260px" /></Parallax>
+              <Parallax speed={-0.06}><Card className="stamp-card">
                 <span className="stamp">Досье закрыто</span>
                 <span className="mono-label">Готов к дефиле</span>
-              </div>
+              </Card></Parallax>
             </motion.div>
           </Reveal>
         </div>

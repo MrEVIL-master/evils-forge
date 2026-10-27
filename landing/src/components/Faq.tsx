@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { SectionHead } from '@/components/Reveal'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
 const QA = [
   { q: 'Это бесплатно?', a: 'Да. Работает в браузере, для аккаунта нужны только почта и пароль.' },
@@ -11,23 +11,18 @@ const QA = [
 ]
 
 export function Faq() {
-  const [open, setOpen] = useState<number | null>(0)
   return (
     <section className="section" id="faq" aria-labelledby="faq-title">
       <div className="wrap">
         <SectionHead num="06" label="Вопросы"><span id="faq-title">Коротко о главном</span></SectionHead>
-        <div className="faq">
+        <Accordion type="single" collapsible defaultValue="q0">
           {QA.map((x, i) => (
-            <div className="faq-item" key={x.q}>
-              <h3 style={{ margin: 0 }}>
-                <button type="button" className="faq-q" aria-expanded={open === i} aria-controls={`faq-a-${i}`} id={`faq-q-${i}`} onClick={() => setOpen(open === i ? null : i)}>
-                  {x.q}<span className="pm" aria-hidden />
-                </button>
-              </h3>
-              <div className="faq-a" id={`faq-a-${i}`} role="region" aria-labelledby={`faq-q-${i}`} hidden={open !== i}>{x.a}</div>
-            </div>
+            <AccordionItem key={x.q} value={`q${i}`}>
+              <AccordionTrigger>{x.q}</AccordionTrigger>
+              <AccordionContent>{x.a}</AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
       </div>
     </section>
   )

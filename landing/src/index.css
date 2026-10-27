@@ -156,7 +156,7 @@ img { display: block; max-width: 100%; }
 
 /* ---------- Hero ---------- */
 .hero { position: relative; padding: calc(var(--hud-h) + 48px) 0 64px; overflow: hidden; }
-.hero::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+.hero-bg { position: absolute; inset: -40px 0 -200px; pointer-events: none;
   background-image: linear-gradient(rgba(46, 43, 59, .5) 1px, transparent 1px), linear-gradient(90deg, rgba(46, 43, 59, .5) 1px, transparent 1px);
   background-size: 32px 32px; -webkit-mask-image: radial-gradient(ellipse 70% 60% at 30% 40%, #000 20%, transparent 75%); mask-image: radial-gradient(ellipse 70% 60% at 30% 40%, #000 20%, transparent 75%); opacity: .45; }
 .hero-grid { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
@@ -193,7 +193,7 @@ img { display: block; max-width: 100%; }
 .stop h3 { margin: 12px 0 0; font: 700 26px/1.2 var(--font-head); }
 .stop p { margin: 12px 0 0; font-size: 17px; color: var(--text-2); max-width: 460px; }
 .stop-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.stop-tags span { padding: 4px 8px; border: 1px solid var(--line-mid); font: 500 12px/1.2 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.tag, .stop-tags span { display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid var(--line-mid); font: 500 12px/1.2 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
 .stop-visual { position: relative; display: grid; grid-template-columns: 2fr 3fr; gap: 16px; align-items: center; }
 .stop-visual .art { aspect-ratio: 3 / 4; }
 .stop-visual .shot { align-self: center; }
@@ -260,7 +260,13 @@ img { display: block; max-width: 100%; }
 .faq-q .pm { position: relative; flex: none; width: 16px; height: 16px; }
 .faq-q .pm::before, .faq-q .pm::after { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: currentColor; transition: transform .2s var(--ease); }
 .faq-q .pm::after { transform: rotate(90deg); }
-.faq-q[aria-expanded="true"] .pm::after { transform: rotate(0); }
+.faq-q[aria-expanded="true"] .pm::after, .faq-q[data-state="open"] .pm::after { transform: rotate(0); }
+.faq-h { margin: 0; font: inherit; }
+.faq-panel { overflow: hidden; }
+[data-motion="on"] .faq-panel[data-state="open"] { animation: faqDown .22s var(--ease); }
+[data-motion="on"] .faq-panel[data-state="closed"] { animation: faqUp .18s var(--ease); }
+@keyframes faqDown { from { height: 0; opacity: 0; } to { height: var(--radix-accordion-content-height); opacity: 1; } }
+@keyframes faqUp { from { height: var(--radix-accordion-content-height); opacity: 1; } to { height: 0; opacity: 0; } }
 .faq-a { padding: 0 40px 20px 0; font-size: 16px; line-height: 1.6; color: var(--text-2); }
 
 /* ---------- Финал и подвал ---------- */
@@ -290,3 +296,19 @@ img { display: block; max-width: 100%; }
 @keyframes vtOut { to { clip-path: polygon(0 0, 100% 0, 100% 12%, 0 12%, 0 25%, 100% 25%, 100% 37%, 0 37%, 0 50%, 100% 50%, 100% 62%, 0 62%, 0 75%, 100% 75%, 100% 87%, 0 87%); transform: translateX(12px); filter: hue-rotate(40deg); } }
 @keyframes vtIn { from { clip-path: polygon(0 12%, 100% 12%, 100% 25%, 0 25%, 0 37%, 100% 37%, 100% 50%, 0 50%, 0 62%, 100% 62%, 100% 75%, 0 75%, 0 87%, 100% 87%, 100% 100%, 0 100%); transform: translateX(-12px); } }
 [data-motion="off"]::view-transition-old(root), [data-motion="off"]::view-transition-new(root) { animation: none; }
+
+/* ---------- shadcn/ui в стиле «Контракт» ---------- */
+.tag-solid { border-color: var(--primary); color: var(--on-accent); background: var(--primary); }
+.card-box { background: var(--surface-1); border: 1px solid var(--line); }
+.sep { flex: none; height: 1px; width: 100%; background: var(--line); }
+.sep-v { width: 1px; height: 16px; }
+
+/* ---------- Параллакс и прогресс ---------- */
+.progress { position: fixed; left: 0; right: 0; top: var(--hud-h); z-index: 51; height: 2px; background: var(--primary); transform-origin: 0 50%; pointer-events: none; }
+.hero-shot-wrap { position: relative; isolation: isolate; }
+.hero-art { position: absolute; z-index: -1; right: -40px; bottom: -44px; width: 24%; aspect-ratio: 3 / 4; pointer-events: none; }
+.hero-art .frame { height: 100%; }
+.hero-art .frame::after { --k: var(--accent); }
+.frame > img.px { will-change: transform; }
+.stop-visual > div { min-width: 0; }
+@media (max-width: 999px) { .hero-art { display: none; } }

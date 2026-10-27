@@ -1,13 +1,19 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { motion } from 'motion/react'
 import { artSet, artUrl } from '@/lib/site'
+import { Badge } from '@/components/ui/badge'
+import { useInnerParallax } from '@/components/Parallax'
 
-// Арт в рамке-скане: уголки, скан-линии, сканирование при наведении
-export function ArtFrame({ name, alt, className = '', sizes = '300px', priority = false, children }: {
-  name: string; alt: string; className?: string; sizes?: string; priority?: boolean; children?: ReactNode
+// Арт в рамке-скане: уголки, скан-линии, сканирование при наведении.
+// parallax — арт смещается внутри неподвижной рамки при прокрутке.
+export function ArtFrame({ name, alt, className = '', sizes = '300px', priority = false, parallax = 0, children }: {
+  name: string; alt: string; className?: string; sizes?: string; priority?: boolean; parallax?: number; children?: ReactNode
 }) {
+  const px = useInnerParallax(parallax || 1)
   return (
     <span className={`frame ${className}`} style={{ '--art': `url('${new URL(artUrl(name, 480), document.baseURI).href}')` } as CSSProperties}>
-      <img src={artUrl(name, 480)} srcSet={artSet(name)} sizes={sizes} alt={alt} loading={priority ? 'eager' : 'lazy'} decoding="async" />
+      <motion.img ref={px.ref} className={parallax ? 'px' : undefined} style={parallax ? px.style : undefined}
+        src={artUrl(name, 480)} srcSet={artSet(name)} sizes={sizes} alt={alt} loading={priority ? 'eager' : 'lazy'} decoding="async" />
       <span className="scan" aria-hidden><i /></span>
       {children}
     </span>
@@ -21,7 +27,7 @@ export function Shot({ src, srcSet, sizes, alt, width, height, className = '', p
   return (
     <span className={`frame shot ${className}`}>
       <img src={src} srcSet={srcSet} sizes={sizes} alt={alt} width={width} height={height} loading={priority ? 'eager' : 'lazy'} decoding="async" fetchPriority={priority ? 'high' : 'auto'} />
-      <span className="sample">Пример</span>
+      <Badge variant="sample">Пример</Badge>
     </span>
   )
 }

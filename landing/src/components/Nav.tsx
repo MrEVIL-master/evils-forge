@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Menu, X, ArrowUpRight } from 'lucide-react'
 import { TRACKER_URL, asset } from '@/lib/site'
+import { Button } from '@/components/ui/button'
+import { ScrollProgress } from '@/components/Parallax'
 
 const LINKS = [
   { href: '#story', label: 'История' },
@@ -29,15 +31,16 @@ export function Nav() {
         <nav className="nav" aria-label="Разделы">
           {LINKS.map(l => <a key={l.href} href={l.href}>{l.label}</a>)}
         </nav>
-        <a className="btn btn-primary btn-sm btn-open" href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a>
+        <Button asChild size="sm" className="btn-open"><a href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a></Button>
         <button type="button" className="menu-btn" aria-label={open ? 'Закрыть меню' : 'Меню'} aria-expanded={open} aria-controls="mnav" onClick={() => setOpen(o => !o)}>
           {open ? <X aria-hidden /> : <Menu aria-hidden />}
         </button>
       </div>
+      <ScrollProgress />
       {open && (
         <nav className="mnav" id="mnav" aria-label="Разделы">
           {LINKS.map(l => <a key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</a>)}
-          <a className="btn btn-primary" href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a>
+          <Button asChild><a href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a></Button>
         </nav>
       )}
     </header>

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { TRACKER_URL, asset, motionOff, setMotion } from '@/lib/site'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 
 export function Cta({ onMotion }: { onMotion: (on: boolean) => void }) {
   const [on, setOn] = useState(() => !motionOff())
@@ -12,13 +14,14 @@ export function Cta({ onMotion }: { onMotion: (on: boolean) => void }) {
             <h2 id="cta-title">Возьми первый контракт</h2>
             <p>Бесплатно. Нужна только почта — или вообще ничего, если без аккаунта.</p>
           </div>
-          <a className="btn btn-primary" href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a>
+          <Button asChild><a href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a></Button>
         </div>
       </section>
       <footer className="foot">
         <div className="wrap">
           <a className="brand" href="#top"><img src={asset('logo-sm.webp')} alt="" width={22} height={28} style={{ width: 22, height: 28, viewTransitionName: 'none' }} /><span>Evil's Forge</span></a>
           <a href={TRACKER_URL}>Трекер</a>
+          <Separator orientation="vertical" />
           <span>Арты и логотип — Evil's Forge</span>
           <label className="motion-switch">
             Анимации

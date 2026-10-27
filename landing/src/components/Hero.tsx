@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowDown } from 'lucide-react'
 import { TRACKER_URL, asset, motionOff } from '@/lib/site'
-import { Shot } from '@/components/Frame'
+import { ArtFrame, Shot } from '@/components/Frame'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { useHeroParallax } from '@/components/Parallax'
 
 // «Вау» №1: при первом открытии за сессию hero «загружается» ~0,7 с — линии сетки, заголовок, снимок трекера.
 // Пропускается кликом, клавишей или прокруткой. В трекере такой загрузки нет.
@@ -24,10 +27,12 @@ export function Hero() {
     evs.forEach(e => window.addEventListener(e, s, { once: true, passive: true }))
     return () => evs.forEach(e => window.removeEventListener(e, s))
   }, [boot])
+  const px = useHeroParallax()
   const t = (delay: number, duration: number) => (skip ? { duration: 0 } : { delay, duration, ease: 'linear' as const })
 
   return (
-    <section className="hero" id="top">
+    <section className="hero" id="top" ref={px.ref}>
+      <motion.div className="hero-bg" aria-hidden style={px.grid} />
       {boot && (
         <div className="boot-lines" aria-hidden>
           {[22, 58].map((top, i) => (
@@ -41,20 +46,24 @@ export function Hero() {
         </div>
       )}
       <div className="wrap hero-grid">
-        <div>
-          <span className="hero-badge">Трекер для косплееров и мастерских</span>
+        <motion.div style={px.text}>
+          <Badge className="hero-badge">Трекер для косплееров и мастерских</Badge>
           <motion.h1 initial={boot ? { clipPath: 'inset(0 100% 0 0)' } : false} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={t(0.2, 0.25)}>
             Куй костюмы,<br />а <span className="y">не хаос</span>
           </motion.h1>
           <p className="lead">Этапы, материалы, бюджет и отсчёт до конвента — по каждому костюму. С ноутбука в мастерской, с телефона в зале.</p>
           <div className="hero-cta">
-            <a className="btn btn-primary" href={TRACKER_URL}>Начать бесплатно</a>
-            <a className="btn btn-ghost" href="#story">Что внутри <ArrowDown aria-hidden /></a>
+            <Button asChild><a href={TRACKER_URL}>Начать бесплатно</a></Button>
+            <Button asChild variant="outline"><a href="#story">Что внутри <ArrowDown aria-hidden /></a></Button>
           </div>
           <div className="hero-facts">
             <span>Бесплатно</span><span>В браузере, без установки</span><span>Можно без аккаунта</span>
           </div>
-        </div>
+        </motion.div>
+        <motion.div className="hero-shot-wrap" style={px.shot}>
+        <motion.div className="hero-art" aria-hidden style={px.art}>
+          <ArtFrame name="art-flame" alt="" sizes="200px" priority />
+        </motion.div>
         <motion.div initial={boot ? { clipPath: 'inset(0 0 100% 0)' } : false} animate={{ clipPath: 'inset(-16px 0 0% 0)' }} transition={t(0.45, 0.25)}>
           <Shot
             className="hero-shot"
@@ -64,6 +73,7 @@ export function Hero() {
             width={1440} height={900} priority
             alt="Трекер Evil's Forge: колонка «Досье» с персонажами, список контрактов со сроками и панель открытого контракта"
           />
+        </motion.div>
         </motion.div>
       </div>
     </section>

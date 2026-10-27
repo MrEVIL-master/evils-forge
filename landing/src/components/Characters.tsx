@@ -46,7 +46,7 @@ export function Characters() {
           <div className="strip" ref={strip} onScroll={update} tabIndex={0} aria-label="Персонажи — листай вбок">
             {CHARS.map(c => (
               <motion.figure key={c.art} variants={revealItem} className="card" style={{ margin: 0 }}>
-                <ArtFrame name={c.art} alt={`${c.name} — арт`} sizes="300px" />
+                <ArtFrame name={c.art} alt={`${c.name} — арт`} sizes="300px" parallax={6} />
                 <figcaption><h3>{c.name}</h3><p>Ориджинал · Evil's Forge</p></figcaption>
               </motion.figure>
             ))}

@@ -20,7 +20,7 @@ export function Gallery() {
         <Reveal className="gallery">
           {ITEMS.map(i => (
             <motion.figure key={i.art} variants={revealItem} className={i.wide ? 'g-wide' : ''} style={{ margin: 0, position: 'relative' }}>
-              <ArtFrame name={i.art} alt={`${i.title} — арт`} sizes={i.wide ? '(max-width: 899px) 100vw, 600px' : '(max-width: 899px) 50vw, 300px'}>
+              <ArtFrame name={i.art} alt={`${i.title} — арт`} parallax={8} sizes={i.wide ? '(max-width: 899px) 100vw, 600px' : '(max-width: 899px) 50vw, 300px'}>
                 <figcaption>{i.title}</figcaption>
               </ArtFrame>
             </motion.figure>
