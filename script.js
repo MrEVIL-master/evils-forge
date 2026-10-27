@@ -176,6 +176,24 @@
     aiList: $('#aiList'),
     aiMeta: $('#aiMeta'),
     aiApplyAll: $('#aiApplyAll'),
+    aiNoKey: $('#aiNoKey'),
+    aiAddKey: $('#aiAddKey'),
+    aiTabs: $('#aiTabs'),
+    specDoc: $('#specDoc'),
+    specRaw: $('#specRaw'),
+    specCopy: $('#specCopy'),
+    specDownload: $('#specDownload'),
+    specRawToggle: $('#specRawToggle'),
+    keyOverlay: $('#keyOverlay'),
+    keyForm: $('#keyForm'),
+    keyInput: $('#keyInput'),
+    keyStatus: $('#keyStatus'),
+    keyMsg: $('#keyMsg'),
+    keySave: $('#keySave'),
+    keyDelete: $('#keyDelete'),
+    umAiKey: $('#umAiKey'),
+    umAiKeyHint: $('#umAiKeyHint'),
+    aKey: $('#aKey'),
 
     confirmOverlay: $('#confirmOverlay'),
     confirmTitle: $('#confirmTitle'),
@@ -335,7 +353,8 @@
       // AI-план: место в списке дел, предложенный приоритет и причина
       aiRank: typeof t.aiRank === 'number' ? t.aiRank : null,
       aiPriority: PRIORITY[t.aiPriority] ? t.aiPriority : null,
-      aiReason: typeof t.aiReason === 'string' ? t.aiReason.slice(0, 200) : ''
+      aiReason: typeof t.aiReason === 'string' ? t.aiReason.slice(0, 200) : '',
+      aiDone: typeof t.aiDone === 'string' ? t.aiDone.slice(0, 200) : ''
     };
   }
 
@@ -873,7 +892,7 @@
   el.addProjectBtn.addEventListener('click', () => openProjectModal(null));
 
   /* ---------- Оверлеи ---------- */
-  const overlays = [el.confirmOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
+  const overlays = [el.confirmOverlay, el.keyOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
 
   function openOverlay(overlay, focusEl) {
     state.lastFocus.push(document.activeElement);
@@ -1604,45 +1623,219 @@
   }, { passive: true });
 
   /* =========================================================
-     ToDo · AI-план: приоритезация задач через Gemini (api/prioritize)
+     ToDo · AI-план: приоритезация задач через Gemini личным ключом
+     пользователя (api/prioritize) + SPEC-документ в Markdown
      ========================================================= */
   const AI_ERRORS = {
     unauthorized: 'AI-план работает в аккаунте: войди или зарегистрируйся (меню справа сверху).',
-    ai_not_configured: 'На сервере не задан ключ Gemini: добавь GEMINI_API_KEY в Vercel → Settings → Environment Variables и сделай Redeploy.',
-    ai_rate_limited: 'Gemini просит паузу: лимит запросов. Попробуй через минуту.',
+    no_user_key: 'Добавь свой ключ Gemini — без него AI-план не работает.',
+    invalid_key: 'Google не принял ключ. Проверь его в AI Studio и сохрани заново.',
+    bad_key_format: 'Это не похоже на ключ Gemini. Скопируй его целиком из AI Studio.',
+    ai_rate_limited: 'Gemini просит паузу: лимит запросов твоего ключа. Попробуй через минуту.',
     no_tasks: 'Нет открытых задач для плана.'
   };
-  const ai = Object.assign({ focus: '', at: 0, context: '', model: '' }, readJSON(KEYS.ai) || {});
+  const SPACE_LABEL = { all: 'всё', workshop: 'мастерская', personal: 'личное' };
+  const ai = Object.assign({ focus: '', at: 0, context: '', model: '', spec: '', tab: 'list' }, readJSON(KEYS.ai) || {});
+  const aiKey = { known: false, hasKey: false, hint: null };
   let aiBusy = false;
 
   const aiOpenTasks = () => scopeTasks().filter(t => t.status !== 'done');
   const aiPlanned = () => aiOpenTasks().filter(t => t.aiRank != null).sort((a, b) => a.aiRank - b.aiRank);
 
-  function aiMessage(text, type = 'info') {
-    el.aiMsg.textContent = text || '';
-    el.aiMsg.dataset.type = type;
+  function aiMessage(node, text, type = 'info') {
+    node.textContent = text || '';
+    node.dataset.type = type;
   }
 
+  /* ---------- личный ключ ---------- */
+  function renderKeyUi() {
+    const has = aiKey.hasKey;
+    el.umAiKey.hidden = store.mode !== 'cloud';
+    el.umAiKeyHint.textContent = has ? aiKey.hint || 'есть' : 'нет';
+    el.umAiKeyHint.dataset.on = has ? '1' : '';
+    el.aiNoKey.hidden = store.mode !== 'cloud' || !aiKey.known || has;
+    el.aiForm.classList.toggle('is-locked', store.mode === 'cloud' && aiKey.known && !has);
+  }
+
+  async function refreshKey() {
+    if (store.mode !== 'cloud') { Object.assign(aiKey, { known: false, hasKey: false, hint: null }); renderKeyUi(); return; }
+    try {
+      const r = await api('ai-key');
+      Object.assign(aiKey, { known: true, hasKey: r.hasKey, hint: r.hint });
+    } catch (e) {
+      if (e.status === 401 && cloud.user) sessionLost();
+    }
+    renderKeyUi();
+  }
+
+  function openKeyModal() {
+    closeUserMenu();
+    el.keyInput.value = '';
+    el.keyStatus.textContent = aiKey.hasKey ? `Ключ сохранён ${aiKey.hint || ''}`.trim() : 'Ключ не добавлен';
+    el.keyStatus.dataset.on = aiKey.hasKey ? '1' : '';
+    el.keyDelete.hidden = !aiKey.hasKey;
+    $('span', el.keySave).textContent = aiKey.hasKey ? 'Заменить' : 'Сохранить';
+    aiMessage(el.keyMsg, '');
+    openOverlay(el.keyOverlay, el.keyInput);
+  }
+
+  el.keyForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const key = el.keyInput.value.trim();
+    if (!key) { invalid(el.keyInput); return; }
+    el.keySave.disabled = true;
+    aiMessage(el.keyMsg, 'Проверяю ключ у Google…');
+    try {
+      const r = await api('ai-key', { method: 'PUT', body: { key } });
+      Object.assign(aiKey, { known: true, hasKey: r.hasKey, hint: r.hint });
+      el.keyInput.value = '';
+      renderKeyUi();
+      closeOverlay(el.keyOverlay);
+      toast('Ключ Gemini сохранён', { type: 'success' });
+      if (el.aiOverlay.classList.contains('open')) aiMessage(el.aiMsg, '');
+    } catch (err) {
+      if (err.status === 401 && cloud.user) { closeOverlay(el.keyOverlay); sessionLost(); return; }
+      aiMessage(el.keyMsg, AI_ERRORS[err.message] || 'Не удалось сохранить ключ. Попробуй ещё раз.', 'danger');
+    } finally {
+      el.keySave.disabled = false;
+    }
+  });
+  el.keyInput.addEventListener('input', () => el.keyInput.closest('.field').classList.remove('invalid'));
+  el.keyDelete.addEventListener('click', async () => {
+    try {
+      await api('ai-key', { method: 'DELETE' });
+      Object.assign(aiKey, { known: true, hasKey: false, hint: null });
+      renderKeyUi();
+      closeOverlay(el.keyOverlay);
+      toast('Ключ удалён', { type: 'danger' });
+    } catch (err) {
+      aiMessage(el.keyMsg, 'Не удалось удалить ключ.', 'danger');
+    }
+  });
+  el.umAiKey.addEventListener('click', openKeyModal);
+  el.aiAddKey.addEventListener('click', openKeyModal);
+
+  /* ---------- Markdown → HTML (для SPEC: заголовки, списки, чекбоксы, таблицы, цитаты) ---------- */
+  function mdInline(t) {
+    return escapeHtml(t)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/(^|[\s(])«?\b(P[0-3])\b/g, '$1<span class="spec-p spec-$2">$2</span>');
+  }
+  function renderMarkdown(src) {
+    const lines = String(src || '').split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      let m;
+      if (!line.trim()) { i++; continue; }
+      if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) {
+        out.push(`<h${m[1].length}>${mdInline(m[2])}</h${m[1].length}>`); i++; continue;
+      }
+      if (/^>\s?/.test(line)) {
+        const q = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) q.push(lines[i++].replace(/^>\s?/, ''));
+        out.push(`<blockquote>${mdInline(q.join(' '))}</blockquote>`); continue;
+      }
+      if (/^\|/.test(line)) {
+        const rows = [];
+        while (i < lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+        const cells = r => r.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        const head = cells(rows[0]);
+        const body = rows.slice(2).map(cells);
+        out.push('<div class="spec-table"><table><thead><tr>' + head.map(c => `<th>${mdInline(c)}</th>`).join('') +
+          '</tr></thead><tbody>' + body.map(r => '<tr>' + r.map(c => `<td>${mdInline(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
+        continue;
+      }
+      if (/^\s*-\s/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\s*-\s/.test(lines[i])) {
+          const l = lines[i++];
+          const nested = /^\s{2,}-\s/.test(l);
+          const text = l.replace(/^\s*-\s/, '');
+          if (nested && items.length) items[items.length - 1].sub.push(text);
+          else items.push({ text, sub: [] });
+        }
+        out.push('<ul>' + items.map(it => {
+          const cb = /^\[( |x)\]\s+/.exec(it.text);
+          const body = cb ? it.text.slice(cb[0].length) : it.text;
+          const box = cb ? `<span class="spec-box${cb[1] === 'x' ? ' on' : ''}"></span>` : '';
+          const sub = it.sub.length ? '<ul>' + it.sub.map(x => `<li>${mdInline(x)}</li>`).join('') + '</ul>' : '';
+          return `<li${cb ? ' class="task-li"' : ''}>${box}${mdInline(body)}${sub}</li>`;
+        }).join('') + '</ul>');
+        continue;
+      }
+      const para = [];
+      while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|>|\||\s*-\s)/.test(lines[i])) para.push(lines[i++]);
+      out.push(`<p>${mdInline(para.join(' '))}</p>`);
+    }
+    return out.join('');
+  }
+
+  function renderSpec() {
+    if (!ai.spec) {
+      el.specDoc.innerHTML = `<div class="empty"><span class="empty-kanji">策</span><span>${aiPlanned().length ? 'SPEC появится после пересчёта плана' : 'Нажми «Расставить» — и здесь появится SPEC.md'}</span></div>`;
+      el.specRaw.textContent = '';
+    } else {
+      el.specDoc.innerHTML = renderMarkdown(ai.spec);
+      el.specRaw.textContent = ai.spec;
+    }
+    [el.specCopy, el.specDownload, el.specRawToggle].forEach(b => { b.disabled = !ai.spec; });
+  }
+
+  function setAiTab(tab) {
+    ai.tab = tab;
+    $$('.tab', el.aiTabs).forEach(b => b.classList.toggle('is-active', b.dataset.aitab === tab));
+    $$('.ai-panel', el.aiOverlay).forEach(p => { p.hidden = p.dataset.aipanel !== tab; });
+    requestAnimationFrame(() => moveInd(el.aiTabs));
+  }
+  el.aiTabs.addEventListener('click', e => {
+    const b = e.target.closest('.tab');
+    if (b && b.dataset.aitab !== ai.tab) { setAiTab(b.dataset.aitab); writeJSON(KEYS.ai, ai); }
+  });
+
+  el.specCopy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(ai.spec); toast('SPEC.md скопирован', { type: 'success', duration: 2200 }); }
+    catch (e) { toast('Не удалось скопировать — открой «Исходник» и выдели текст', { type: 'danger' }); }
+  });
+  el.specDownload.addEventListener('click', () => {
+    const url = URL.createObjectURL(new Blob([ai.spec], { type: 'text/markdown;charset=utf-8' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'SPEC.md' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  el.specRawToggle.addEventListener('click', () => {
+    const raw = el.specRaw.hidden;
+    el.specRaw.hidden = !raw;
+    el.specDoc.hidden = raw;
+    el.specRawToggle.setAttribute('aria-pressed', String(raw));
+    $('span', el.specRawToggle).textContent = raw ? 'Документ' : 'Исходник';
+  });
+
+  /* ---------- список дел ---------- */
   function aiItemHtml(t, i) {
     const proj = projectById(t.projectId);
     const work = t.workType && WORK[t.workType];
     const sug = t.aiPriority && t.aiPriority !== t.priority ? t.aiPriority : null;
+    const P = { critical: 'P0', high: 'P1', medium: 'P2', low: 'P3' };
     const tags = [
       proj ? `<span class="tag tag-project" style="--tc:${proj.color};color:${inkOn(proj.color)}"><span>${escapeHtml(proj.name)}</span></span>` : '',
       work ? `<span class="tag" style="--tc:${work.color}">${icon(work.icon)}${work.label}</span>` : '',
       t.status === 'progress' ? `<span class="tag" style="--tc:var(--magenta)">${icon('armor')}В работе</span>` : ''
     ].join('');
     return `
-      <li class="ai-item" data-id="${t.id}" style="--i:${i}">
-        <span class="ai-num">${i + 1}</span>
+      <li class="ai-item" data-id="${t.id}" data-p="${t.aiPriority || t.priority}" style="--i:${i}">
+        <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
         <button class="check" type="button" data-ai="done" aria-label="Отметить выполненной">${icon('check')}</button>
         <div class="ai-body">
           <h4 class="ai-title">${escapeHtml(t.title)}</h4>
           ${tags ? `<div class="task-tags">${tags}</div>` : ''}
           ${t.aiReason ? `<p class="ai-reason">${icon('spark')}<span>${escapeHtml(t.aiReason)}</span></p>` : ''}
+          ${t.aiDone ? `<p class="ai-done">${icon('check')}<span>Готово, когда: ${escapeHtml(t.aiDone)}</span></p>` : ''}
           <div class="task-meta ai-meta-row">
-            <span class="badge" data-p="${t.priority}"><span>${PRIORITY[t.priority].label}</span></span>
-            ${sug ? `<span class="ai-arrow">→</span><span class="badge" data-p="${sug}"><span>${PRIORITY[sug].label}</span></span>
+            <span class="badge" data-p="${t.priority}"><span>${P[t.priority]} · ${PRIORITY[t.priority].label}</span></span>
+            ${sug ? `<span class="ai-arrow">→</span><span class="badge" data-p="${sug}"><span>${P[sug]} · ${PRIORITY[sug].label}</span></span>
               <button type="button" class="ai-apply" data-ai="apply">применить</button>` : ''}
             ${dueHtml(t)}
           </div>
@@ -1668,28 +1861,48 @@
     if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новая задача', 'новые задачи', 'новых задач'])} не в плане`);
     el.aiMeta.textContent = parts.join(' · ');
     $('span', el.aiRun).textContent = list.length ? 'Пересчитать' : 'Расставить';
+    renderSpec();
+    renderKeyUi();
+  }
+
+  function aiReveal() {
+    if (reducedMotion) return;
+    const nodes = ai.tab === 'spec' ? $$('.spec-doc > *', el.aiOverlay) : $$('.ai-item', el.aiList);
+    nodes.forEach((node, i) => node.animate(
+      [{ opacity: 0, transform: 'translateY(22px) rotate(-1deg)', filter: 'blur(6px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+      { duration: 620, delay: Math.min(i, 14) * 55, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'backwards' }));
   }
 
   function openAiPlan() {
     el.aiContext.value = ai.context || '';
-    aiMessage(store.mode === 'cloud' ? '' : AI_ERRORS.unauthorized, store.mode === 'cloud' ? 'info' : 'warn');
+    aiMessage(el.aiMsg, store.mode === 'cloud' ? '' : AI_ERRORS.unauthorized, store.mode === 'cloud' ? 'info' : 'warn');
+    setAiTab(ai.tab === 'spec' ? 'spec' : 'list');
     renderAiPlan();
     openOverlay(el.aiOverlay, aiPlanned().length ? el.aiApplyAll : el.aiContext);
+    setTimeout(aiReveal, 120);
+    if (store.mode === 'cloud') refreshKey();
   }
+
+  // параллакс арта и иероглифа при прокрутке окна — как на лендинге
+  el.aiOverlay.querySelector('.ai-modal').addEventListener('scroll', e => {
+    const y = e.currentTarget.scrollTop;
+    e.currentTarget.style.setProperty('--py', y.toFixed(0));
+  }, { passive: true });
 
   async function runAiPlan() {
     if (aiBusy) return;
     const open = aiOpenTasks();
-    if (!open.length) { aiMessage(AI_ERRORS.no_tasks, 'warn'); return; }
-    if (store.mode !== 'cloud') { aiMessage(AI_ERRORS.unauthorized, 'warn'); return; }
-    if (open.length > 120) aiMessage('Задач больше 120 — в план попадут первые 120 по дедлайну.', 'warn');
+    if (!open.length) { aiMessage(el.aiMsg, AI_ERRORS.no_tasks, 'warn'); return; }
+    if (store.mode !== 'cloud') { aiMessage(el.aiMsg, AI_ERRORS.unauthorized, 'warn'); return; }
+    if (aiKey.known && !aiKey.hasKey) { aiMessage(el.aiMsg, AI_ERRORS.no_user_key, 'warn'); openKeyModal(); return; }
+    if (open.length > 120) aiMessage(el.aiMsg, 'Задач больше 120 — в план попадут первые 120 по дедлайну.', 'warn');
 
     ai.context = el.aiContext.value.trim();
     aiBusy = true;
     el.aiRun.disabled = true;
     el.aiOverlay.classList.add('ai-busy');
     $('span', el.aiRun).textContent = 'Думаю…';
-    if (open.length <= 120) aiMessage('Gemini раскладывает задачи…');
+    if (open.length <= 120) aiMessage(el.aiMsg, 'Gemini раскладывает задачи и пишет SPEC…');
 
     const sorted = open.slice().sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity)).slice(0, 120);
     const iso = ms => (ms == null ? null : toLocalInput(ms));
@@ -1706,29 +1919,28 @@
     });
 
     try {
-      const res = await api('prioritize', { method: 'POST', body: { tasks: payload, context: ai.context, now: toLocalInput(Date.now()) } });
+      const res = await api('prioritize', { method: 'POST', body: {
+        tasks: payload, context: ai.context, now: toLocalInput(Date.now()), scope: SPACE_LABEL[state.space] || 'всё'
+      } });
       const ids = new Set(sorted.map(t => t.id));
-      state.tasks.forEach(t => { if (ids.has(t.id)) { t.aiRank = null; t.aiPriority = null; t.aiReason = ''; } });
+      state.tasks.forEach(t => { if (ids.has(t.id)) { t.aiRank = null; t.aiPriority = null; t.aiReason = ''; t.aiDone = ''; } });
       res.items.forEach((it, i) => {
         const t = state.tasks.find(x => x.id === it.id);
-        if (t) { t.aiRank = i; t.aiPriority = it.priority; t.aiReason = it.reason || ''; }
+        if (t) { t.aiRank = i; t.aiPriority = it.priority; t.aiReason = it.reason || ''; t.aiDone = it.doneWhen || ''; }
       });
-      Object.assign(ai, { focus: res.focus || '', at: Date.now(), model: res.model || '' });
+      Object.assign(ai, { focus: res.focus || '', at: Date.now(), model: res.model || '', spec: res.spec || '' });
       writeJSON(KEYS.ai, ai);
       save();
-      aiMessage('');
+      aiMessage(el.aiMsg, '');
       state.filter.sort = 'ai';
       el.sortSelect.value = 'ai';
       render();
       renderAiPlan();
-      if (!reducedMotion) {
-        $$('.ai-item', el.aiList).forEach((node, i) => node.animate(
-          [{ opacity: 0, transform: 'translateX(-16px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
-          { duration: 480, delay: Math.min(i, 14) * 50, easing: EASE, fill: 'backwards' }));
-      }
+      aiReveal();
     } catch (err) {
-      if (err.status === 401 && cloud.user) { closeOverlay(el.aiOverlay); sessionLost(); }
-      aiMessage(AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось построить план. Попробуй ещё раз.'), 'danger');
+      if (err.status === 401 && cloud.user) { closeOverlay(el.aiOverlay); sessionLost(); return; }
+      if (err.message === 'no_user_key') { Object.assign(aiKey, { known: true, hasKey: false }); renderKeyUi(); }
+      aiMessage(el.aiMsg, AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось построить план. Попробуй ещё раз.'), 'danger');
     } finally {
       aiBusy = false;
       el.aiRun.disabled = false;
@@ -1919,6 +2131,7 @@
     hideAuth();
     renderAll();
     setSync('syncing');
+    refreshKey();
 
     const res = await pull();
     if (!cloud.user || cloud.user.id !== user.id || !res.ok) return;
@@ -1964,6 +2177,7 @@
     cloud.user = null;
     cloud.lastPushed = null;
     store.mode = 'local';
+    Object.assign(aiKey, { known: false, hasKey: false, hint: null });
     store.userId = null;
     applyData({ tasks: [], projects: [] }, { reset: true });
     state.updatedAt = 0;
@@ -2080,6 +2294,8 @@
     weak_password: 'Пароль слишком короткий — минимум 6 символов',
     password_too_long: 'Пароль слишком длинный',
     too_many_attempts: 'Слишком много попыток — подожди 15 минут',
+    invalid_key: 'Google не принял ключ Gemini — проверь его или оставь поле пустым и добавь позже',
+    bad_key_format: 'Это не похоже на ключ Gemini — скопируй его целиком или оставь поле пустым',
     server_error: 'Ошибка сервера — попробуй ещё раз чуть позже'
   };
   function translateAuthError(err) {
@@ -2115,9 +2331,13 @@
     authMessage('');
     try {
       if (authMode === 'register') {
-        const { user } = await api('auth/register', { method: 'POST', body: { email, password, name: el.aName.value.trim() } });
+        const geminiKey = el.aKey.value.trim();
+        if (geminiKey) authMessage('Проверяю ключ Gemini…');
+        const { user, ai: keyInfo } = await api('auth/register', { method: 'POST', body: { email, password, name: el.aName.value.trim(), geminiKey } });
+        if (keyInfo) Object.assign(aiKey, { known: true, hasKey: keyInfo.hasKey, hint: keyInfo.hint });
+        el.aKey.value = '';
         await startCloudUser(user);
-        toast('Добро пожаловать в кузницу!', { type: 'success' });
+        toast(keyInfo && keyInfo.hasKey ? 'Добро пожаловать! AI-план подключён' : 'Добро пожаловать в кузницу!', { type: 'success' });
       } else {
         const { user } = await api('auth/login', { method: 'POST', body: { email, password } });
         await startCloudUser(user);
@@ -2144,6 +2364,7 @@
     el.umLogin.hidden = !!u;
     el.umLogout.hidden = !u;
     el.umSyncNow.hidden = !u;
+    if (typeof renderKeyUi === 'function') renderKeyUi();
   }
 
   function openUserMenu() {
