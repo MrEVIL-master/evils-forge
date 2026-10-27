@@ -1,487 +1,445 @@
 <!doctype html>
-<html lang="ru" data-theme="dark" data-space="all">
+<html lang="ru" data-space="all" data-motion="on">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Evil's Forge — Кузница косплея</title>
-  <link rel="icon" href="assets/logo-sm.webp" type="image/webp">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Russo+One&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=11">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Evil's Forge — трекер косплея</title>
+  <meta name="description" content="Трекер для косплееров и мастерских: этапы крафта, материалы, бюджет и отсчёт до конвента. Бесплатно, в браузере.">
+  <meta name="theme-color" content="#0B0A14">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Evil's Forge — куй костюмы, а не хаос">
+  <meta property="og:description" content="Трекер для косплееров и мастерских: этапы крафта, материалы, бюджет и отсчёт до конвента. Бесплатно, в браузере.">
+  <meta property="og:image" content="assets/og.png">
+  <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preload" href="assets/fonts/tektur-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/ibm-plex-sans-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css?v=20">
   <script>
-    // Тема и пространство ставятся до первой отрисовки, чтобы не было вспышки
+    // Пространство и режим анимаций ставятся до первой отрисовки, чтобы ничего не мелькнуло
     (function () {
-      var d = document.documentElement, t = null, s = null, a = null;
-      try { t = localStorage.getItem('evilsforge.theme'); s = localStorage.getItem('evilsforge.space'); a = localStorage.getItem('evilsforge.arts'); } catch (e) {}
-      if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      d.setAttribute('data-theme', t);
-      d.setAttribute('data-arts', a === 'off' ? 'off' : 'on');
+      var d = document.documentElement, s = null, m = null;
+      try { s = localStorage.getItem('evilsforge.space'); m = localStorage.getItem('evilsforge.motion'); } catch (e) {}
       if (s === 'workshop' || s === 'personal' || s === 'all') d.setAttribute('data-space', s);
+      if (m !== 'on' && m !== 'off') m = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on';
+      d.setAttribute('data-motion', m);
     })();
   </script>
 </head>
 <body>
-  <!-- ===== SVG-спрайт иконок ===== -->
+  <!-- ===== Иконки: Lucide (ISC) + свои «парик», «грим», «фандом» ===== -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <symbol id="i-sew" viewBox="0 0 24 24"><path d="M5 19 19 5"/><path d="M16 3.5l4.5 4.5"/><path d="M5 19c-2.5-3.5 3.5-6.5.5-10.5"/></symbol>
-      <symbol id="i-armor" viewBox="0 0 24 24"><path d="M13 8 4 17l3 3 9-9"/><path d="M11 5h7l3 3-4 4-6-6Z"/></symbol>
-      <symbol id="i-paint" viewBox="0 0 24 24"><path d="M18 3l3 3-10 10-3-3Z"/><path d="M8 13c-3 0-5 2-5 7 3 0 6-1.5 6-4.5"/></symbol>
+      <symbol id="i-sew" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3" /> <path d="M8.12 8.12 12 12" /> <path d="M20 4 8.12 15.88" /> <circle cx="6" cy="18" r="3" /> <path d="M14.8 14.8 20 20" /></symbol>
+      <symbol id="i-armor" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol>
+      <symbol id="i-paint" viewBox="0 0 24 24"><path d="m14.622 17.897-10.68-2.913" /> <path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z" /> <path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15" /></symbol>
+      <symbol id="i-props" viewBox="0 0 24 24"><path d="m11 19-6-6" /> <path d="m5 21-2-2" /> <path d="m8 16-4 4" /> <path d="M9.5 17.5 20.414 6.586A2 2 0 0021 5.172V3h-2.172a2 2 0 00-1.414.586L6.5 14.5" /></symbol>
+      <symbol id="i-photo" viewBox="0 0 24 24"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" /> <circle cx="12" cy="13" r="3" /></symbol>
+      <symbol id="i-con" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /> <path d="M13 5v2" /> <path d="M13 17v2" /> <path d="M13 11v2" /></symbol>
+      <symbol id="i-other" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="19" cy="12" r="1" /> <circle cx="5" cy="12" r="1" /></symbol>
+      <symbol id="i-forge" viewBox="0 0 24 24"><path d="M7 10H6a4 4 0 0 1-4-4 1 1 0 0 1 1-1h4" /> <path d="M7 5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1 7 7 0 0 1-7 7H8a1 1 0 0 1-1-1z" /> <path d="M9 12v5" /> <path d="M15 12v5" /> <path d="M5 20a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3 1 1 0 0 1-1 1H6a1 1 0 0 1-1-1" /></symbol>
+      <symbol id="i-all" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1" /> <rect width="7" height="7" x="3" y="14" rx="1" /> <path d="M14 4h7" /> <path d="M14 9h7" /> <path d="M14 15h7" /> <path d="M14 20h7" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2" /> <line x1="12" x2="15" y1="14" y2="11" /> <circle cx="12" cy="14" r="8" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol>
+      <symbol id="i-coin" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /> <path d="M15 6h1v4" /> <path d="m6.134 14.768.866-.5 2 3.464" /> <circle cx="16" cy="8" r="6" /></symbol>
+      <symbol id="i-steps" viewBox="0 0 24 24"><path d="M13 5h8" /> <path d="M13 12h8" /> <path d="M13 19h8" /> <path d="m3 17 2 2 4-4" /> <path d="m3 7 2 2 4-4" /></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" /> <path d="M12 22V12" /> <polyline points="3.29 7 12 12 20.71 7" /> <path d="m7.5 4.27 9 5.15" /></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5" /> <path d="M21 12H9" /> <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /> <circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /> <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /> <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /> <path d="m2 2 20 20" /></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /> <path d="M20 2v4" /> <path d="M22 4h-4" /> <circle cx="4" cy="20" r="2" /></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></symbol>
+      <symbol id="i-dossier" viewBox="0 0 24 24"><path d="M13 19a4 4 0 00-8 0" /> <path d="M16 10h2" /> <path d="M16 14h2" /> <circle cx="9" cy="12" r="3" /> <rect x="2" y="5" width="20" height="14" rx="2" /></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 5h16" /> <path d="M4 12h16" /> <path d="M4 19h16" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="12" x2="12" y1="8" y2="12" /> <line x1="12" x2="12.01" y1="16" y2="16" /></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /> <path d="M19 12H5" /></symbol>
+      <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 7h10v10" /> <path d="M7 17 17 7" /></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 5H3" /> <path d="M12 19H3" /> <path d="M14 3v4" /> <path d="M16 17v4" /> <path d="M21 12h-9" /> <path d="M21 19h-5" /> <path d="M21 5h-7" /> <path d="M8 10v4" /> <path d="M8 12H3" /></symbol>
+      <symbol id="i-kbd" viewBox="0 0 24 24"><path d="M10 8h.01" /> <path d="M12 12h.01" /> <path d="M14 8h.01" /> <path d="M16 12h.01" /> <path d="M18 8h.01" /> <path d="M6 8h.01" /> <path d="M7 16h10" /> <path d="M8 12h.01" /> <rect width="20" height="16" x="2" y="4" rx="2" /></symbol>
+      <symbol id="i-motion" viewBox="0 0 24 24"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" /></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="12" r="1" /> <circle cx="9" cy="5" r="1" /> <circle cx="9" cy="19" r="1" /> <circle cx="15" cy="12" r="1" /> <circle cx="15" cy="5" r="1" /> <circle cx="15" cy="19" r="1" /></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="5" r="1" /> <circle cx="12" cy="19" r="1" /></symbol>
+      <symbol id="i-cal" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol>
+      <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+      <symbol id="i-personal" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5" /> <path d="M20 21a8 8 0 0 0-16 0" /></symbol>
+      <symbol id="i-login" viewBox="0 0 24 24"><path d="m10 17 5-5-5-5" /> <path d="M15 12H3" /> <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /></symbol>
+      <symbol id="i-clean" viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21" /> <path d="m5.082 11.09 8.828 8.828" /></symbol>
+      <symbol id="i-status" viewBox="0 0 24 24"><path d="M10.1 2.182a10 10 0 0 1 3.8 0" /> <path d="M13.9 21.818a10 10 0 0 1-3.8 0" /> <path d="M17.609 3.721a10 10 0 0 1 2.69 2.7" /> <path d="M2.182 13.9a10 10 0 0 1 0-3.8" /> <path d="M20.279 17.609a10 10 0 0 1-2.7 2.69" /> <path d="M21.818 10.1a10 10 0 0 1 0 3.8" /> <path d="M3.721 6.391a10 10 0 0 1 2.7-2.69" /> <path d="M6.391 20.279a10 10 0 0 1-2.69-2.7" /></symbol>
+      <symbol id="i-progress" viewBox="0 0 24 24"><path d="M12 2v4" /> <path d="m16.2 7.8 2.9-2.9" /> <path d="M18 12h4" /> <path d="m16.2 16.2 2.9 2.9" /> <path d="M12 18v4" /> <path d="m4.9 19.1 2.9-2.9" /> <path d="M2 12h4" /> <path d="m4.9 4.9 2.9 2.9" /></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /> <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol>
       <symbol id="i-wig" viewBox="0 0 24 24"><path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M5 11c3.5 0 6-2 7-5 1 3 3.5 5 7 5"/><path d="M8.5 21v-6M15.5 21v-6"/></symbol>
-      <symbol id="i-makeup" viewBox="0 0 24 24"><path d="M4 7c3-2 13-2 16 0 0 8-3 14-8 14S4 15 4 7Z"/><path d="M7.5 11l3 1M16.5 11l-3 1M9 16l1.5-1 1.5 1 1.5-1 1.5 1"/><path d="M6 5.5 4.5 2M18 5.5 19.5 2"/></symbol>
-      <symbol id="i-props" viewBox="0 0 24 24"><path d="M21 3 10 14"/><path d="M21 3h-4.5M21 3v4.5"/><path d="M7 12l5 5M4 20l4.5-4.5"/></symbol>
-      <symbol id="i-photo" viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v12H3Z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
-      <symbol id="i-con" viewBox="0 0 24 24"><path d="M2.5 5c6.5 1.5 12.5 1.5 19 0"/><path d="M4.5 9.5h15M7 6v15M17 6v15"/></symbol>
-      <symbol id="i-other" viewBox="0 0 24 24"><path d="M12 3 21 12 12 21 3 12Z"/><path d="M12 8.5 15.5 12 12 15.5 8.5 12Z"/></symbol>
-      <symbol id="i-fan" viewBox="0 0 24 24"><path d="M12 21 2.5 9.5a13 13 0 0 1 19 0Z"/><path d="M12 21 7.5 6M12 21V4.5M12 21l4.5-15"/></symbol>
-      <symbol id="i-forge" viewBox="0 0 24 24"><path d="M3 9h13l5-3v6h-4l-2 3H8L5 11H3Z"/><path d="M9 15l-2 6h10l-2-6"/></symbol>
-      <symbol id="i-all" viewBox="0 0 24 24"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z"/></symbol>
-      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
-      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
-      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M14.5 4.5l5 5L9 20H4v-5Z"/><path d="m12.5 6.5 5 5"/></symbol>
-      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
-      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
-      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
-      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
-      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></symbol>
-      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
-      <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7.5" ry="3.5"/><path d="M4.5 7v5c0 2 3.4 3.5 7.5 3.5s7.5-1.5 7.5-3.5V7"/><path d="M4.5 12v5c0 2 3.4 3.5 7.5 3.5s7.5-1.5 7.5-3.5v-5"/></symbol>
-      <symbol id="i-steps" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11"/><path d="M4 18h2"/></symbol>
-      <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
-      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
-      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.2-6.5 8-6.5s7 2 8 6.5"/></symbol>
-      <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h5v16h-5"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
-      <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 21v-5h-5"/></symbol>
-      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
-      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7Z"/><path d="M19 15.5c.3 1.6 1 2.3 2.5 2.5-1.5.2-2.2.9-2.5 2.5-.3-1.6-1-2.3-2.5-2.5 1.5-.2 2.2-.9 2.5-2.5Z"/></symbol>
-      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5l2.5 2.5M14.5 8.5l2 2"/></symbol>
-      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
-      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
-      <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
-      <symbol id="i-flame"viewBox="0 0 24 24"><path d="M12 21c-4 0-7-2.7-7-6.5 0-4 3.5-5.5 4-10 3 2 3.5 4.5 3.5 6 1-1 1.5-2.5 1.5-3.5 2.5 2 5 4.5 5 7.5 0 3.8-3 6.5-7 6.5Z"/></symbol>
+      <symbol id="i-makeup" viewBox="0 0 24 24"><path d="M5 7c3-2 11-2 14 0 0 8-2.8 13-7 13S5 15 5 7Z"/><path d="M8 11l2.5 1M16 11l-2.5 1M9.5 16h5"/></symbol>
+      <symbol id="i-fan" viewBox="0 0 24 24"><path d="M12 20 3 9.5a12.5 12.5 0 0 1 18 0Z"/><path d="M12 20 8 6M12 20V4.5M12 20l4-14"/></symbol>
     </defs>
   </svg>
 
-  <!-- ===== Фон: панели, дымки, волны, полутон ===== -->
-  <div class="bg" aria-hidden="true">
-    <span class="panel p1"></span>
-    <span class="panel p2"></span>
-    <span class="panel p3"></span>
-    <span class="seigaiha"></span>
-    <span class="halftone h1"></span>
-    <span class="halftone h2"></span>
-    <span class="bg-kanji">鍛</span>
-    <img class="bg-art a1" src="assets/art-spirit.jpg" alt="" decoding="async">
-    <img class="bg-art a2" src="assets/art-geisha.jpg" alt="" decoding="async">
-    <svg class="smoke" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="4" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <path class="ribbon r1" d="M-60 640 C 160 520, 260 760, 470 640 S 760 420, 900 560 S 1180 760, 1500 520"/>
-      <path class="ribbon-line l1" d="M-60 640 C 160 520, 260 760, 470 640 S 760 420, 900 560 S 1180 760, 1500 520"/>
-      <path class="wisp w1" d="M-40 220 C 120 120, 220 330, 380 230 S 600 80, 700 200 S 880 340, 960 260"/>
-      <path class="wisp w2" d="M1480 180 C 1320 260, 1260 80, 1120 160 S 960 320, 860 240"/>
-      <path class="wisp w3" d="M200 920 C 260 800, 420 860, 460 760 S 420 600, 560 560"/>
-      <path class="wisp w4" d="M1500 820 C 1380 700, 1260 860, 1160 760 S 1100 600, 1240 560"/>
-    </svg>
-    <span class="grain"></span>
-  </div>
+  <div class="app" id="app" data-view="list">
+    <!-- ===== HUD-шапка ===== -->
+    <header class="hud" id="hud">
+      <a class="hud-brand" href="./" aria-label="Evil's Forge — на главную трекера">
+        <img src="assets/logo-sm.webp" alt="" width="28" height="36">
+        <span class="hud-name">Evil's Forge</span>
+      </a>
 
-  <div class="app">
-    <!-- ===== Шапка ===== -->
-    <header class="topbar glass">
-      <div class="brand">
-        <span class="logo-glow"><img src="assets/logo-sm.webp" alt="Evil's Forge"></span>
-        <div class="brand-text">
-          <h1 class="brand-title">EVIL'S FORGE</h1>
-          <p class="brand-sub"><span>◆</span> кузница косплея</p>
+      <div class="seg seg-space" id="spaceSwitch" role="tablist" aria-label="Пространство">
+        <button type="button" role="tab" class="seg-btn" data-value="workshop">Мастерская</button>
+        <button type="button" role="tab" class="seg-btn" data-value="personal">Личное</button>
+        <button type="button" role="tab" class="seg-btn" data-value="all">Всё</button>
+      </div>
+
+      <div class="space-m">
+        <button type="button" class="space-btn" id="spaceBtn" aria-haspopup="menu" aria-expanded="false">
+          <span id="spaceLabel">Всё</span><svg class="ico"><use href="#i-chev"/></svg>
+        </button>
+        <div class="menu space-menu" id="spaceMenu" role="menu" hidden>
+          <button type="button" role="menuitemradio" class="menu-item" data-value="workshop">Мастерская</button>
+          <button type="button" role="menuitemradio" class="menu-item" data-value="personal">Личное</button>
+          <button type="button" role="menuitemradio" class="menu-item" data-value="all">Всё</button>
         </div>
       </div>
 
-      <div class="seg seg-space" id="spaceSwitch" role="tablist" aria-label="Пространство">
-        <span class="seg-ind" aria-hidden="true"></span>
-        <button type="button" role="tab" class="seg-btn" data-value="all"><svg class="ico"><use href="#i-all"/></svg><span>Всё</span></button>
-        <button type="button" role="tab" class="seg-btn" data-value="workshop"><svg class="ico"><use href="#i-forge"/></svg><span>Мастерская</span></button>
-        <button type="button" role="tab" class="seg-btn" data-value="personal"><svg class="ico"><use href="#i-fan"/></svg><span>Личное</span></button>
-      </div>
-
-      <label class="search">
+      <label class="search" id="searchBox">
         <svg class="ico"><use href="#i-search"/></svg>
-        <input id="search" type="search" placeholder="Поиск задач…" autocomplete="off">
+        <input id="search" type="search" placeholder="Поиск по контрактам" autocomplete="off" enterkeyhint="search">
         <kbd>/</kbd>
+        <button type="button" class="search-cancel" id="searchCancel">Отмена</button>
       </label>
 
-      <div class="top-actions">
+      <div class="hud-right">
+        <button type="button" class="icon-btn search-open-btn" id="searchOpen" aria-label="Поиск"><svg class="ico"><use href="#i-search"/></svg></button>
         <div class="user-wrap">
           <button id="userBtn" class="user-btn" type="button" aria-haspopup="menu" aria-expanded="false" title="Аккаунт">
             <span class="avatar" id="userAvatar">?</span>
             <span class="sync-dot" id="syncDot" data-status="local"></span>
           </button>
-          <div class="user-menu glass" id="userMenu" role="menu" hidden>
+          <div class="menu user-menu" id="userMenu" role="menu" hidden>
             <div class="um-head">
               <span class="avatar avatar-lg" id="umAvatar">?</span>
               <div class="um-who">
                 <b id="umName">Гость</b>
-                <span id="umEmail">локальный режим</span>
+                <span id="umEmail">без аккаунта</span>
               </div>
             </div>
-            <div class="um-sync"><span class="sync-dot" id="umSyncDot" data-status="local"></span><span id="umSyncText">Данные только на этом устройстве</span></div>
-            <label class="um-row"><span>Арты на фоне</span><input type="checkbox" class="toggle" id="artsToggle"></label>
-            <button type="button" class="um-item" id="umAiKey"><svg class="ico"><use href="#i-key"/></svg><span>AI-ключ Gemini</span><i class="um-badge" id="umAiKeyHint"></i></button>
-            <button type="button" class="um-item" id="umSyncNow"><svg class="ico"><use href="#i-sync"/></svg>Синхронизировать</button>
-            <button type="button" class="um-item" id="umLogin"><svg class="ico"><use href="#i-user"/></svg>Войти или создать аккаунт</button>
-            <button type="button" class="um-item" id="umReset"><svg class="ico"><use href="#i-trash"/></svg>Начать с чистого листа</button>
-            <button type="button" class="um-item um-danger" id="umLogout"><svg class="ico"><use href="#i-logout"/></svg>Выйти</button>
+            <div class="um-sync"><span class="sync-dot" id="umSyncDot" data-status="local"></span><span id="umSyncText">Данные только в этом браузере</span></div>
+            <div class="menu-sep"></div>
+            <button type="button" class="menu-item" id="umAiKey"><svg class="ico"><use href="#i-key"/></svg><span>AI-ключ Gemini</span><i class="um-badge" id="umAiKeyHint"></i></button>
+            <button type="button" class="menu-item" id="umSyncNow"><svg class="ico"><use href="#i-sync"/></svg><span>Синхронизировать</span></button>
+            <label class="menu-item um-toggle"><svg class="ico"><use href="#i-motion"/></svg><span>Анимации</span><input type="checkbox" class="toggle" id="motionToggle"></label>
+            <button type="button" class="menu-item" id="umKeys"><svg class="ico"><use href="#i-kbd"/></svg><span>Горячие клавиши</span><kbd>?</kbd></button>
+            <button type="button" class="menu-item" id="umLogin"><svg class="ico"><use href="#i-login"/></svg><span>Войти или создать аккаунт</span></button>
+            <div class="menu-sep"></div>
+            <button type="button" class="menu-item is-danger" id="umReset"><svg class="ico"><use href="#i-clean"/></svg><span>Начать с чистого листа</span></button>
+            <button type="button" class="menu-item is-danger" id="umLogout"><svg class="ico"><use href="#i-logout"/></svg><span>Выйти</span></button>
           </div>
         </div>
-        <button id="themeToggle" class="icon-btn theme-toggle" type="button" aria-label="Сменить тему" title="Сменить тему">
-          <svg class="ico i-sun"><use href="#i-sun"/></svg>
-          <svg class="ico i-moon"><use href="#i-moon"/></svg>
-        </button>
-        <button id="addBtn" class="btn btn-primary" type="button">
-          <svg class="ico"><use href="#i-plus"/></svg><span>Задача</span>
+        <button id="addBtn" class="btn btn-primary" type="button" title="Новый контракт (N)">
+          <svg class="ico"><use href="#i-plus"/></svg><span>Контракт</span>
         </button>
       </div>
     </header>
 
-    <!-- ===== Статистика ===== -->
-    <section class="stats" aria-label="Статистика">
-      <article class="stat stat-ring glass" style="--sc: var(--magenta)">
-        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="ring-ink" cx="60" cy="60" r="48"/>
-          <circle class="ring-track" cx="60" cy="60" r="48"/>
-          <circle id="ringBar" class="ring-bar" cx="60" cy="60" r="48"/>
-        </svg>
-        <div class="ring-label">
-          <strong><span id="ringPct">0</span>%</strong>
-          <span>выковано</span>
-          <small><b id="ringDone">0</b> из <b id="ringTotal">0</b></small>
+    <div class="layout" id="layout">
+      <!-- ===== Досье: персонажи ===== -->
+      <aside class="dossier" id="dossier" aria-labelledby="dossierTitle">
+        <header class="col-head">
+          <h2 class="col-title" id="dossierTitle">Досье</h2>
+          <button id="addProjectBtn" class="btn btn-text btn-sm" type="button" title="Новый персонаж (P)">
+            <svg class="ico"><use href="#i-plus"/></svg><span>Персонаж</span>
+          </button>
+        </header>
+        <div class="dossier-sum" id="dossierSum"></div>
+        <div class="dossier-list" id="projectsTrack"></div>
+      </aside>
+
+      <!-- ===== Контракты ===== -->
+      <main class="contracts" id="contracts" aria-labelledby="contractsTitle">
+        <h2 class="sr-only" id="contractsTitle">Контракты</h2>
+        <div class="statline" id="statline" aria-label="Сводка">
+          <button type="button" class="st" data-stat="progress"><span class="st-l">В работе</span><b class="st-v" id="statProgress">0</b></button>
+          <button type="button" class="st" data-stat="overdue" id="overdueCard"><span class="st-l">Горит</span><b class="st-v" id="statOverdue">0</b></button>
+          <span class="st ws-only"><span class="st-l">Бюджет</span><b class="st-v"><span id="statSpent">0</span> / <span id="statPlanned">0</span> ₽</b></span>
+          <span class="st ws-only" id="conStat"><span class="st-l" id="conName">Конвент</span><b class="st-v" id="conDays">—</b></span>
+          <span class="st"><span class="st-l">Закрыто</span><b class="st-v"><span id="ringDone">0</span> из <span id="ringTotal">0</span></b></span>
         </div>
-      </article>
 
-      <article class="stat glass personal-only" style="--sc: var(--cyan)">
-        <span class="stat-icon"><svg class="ico"><use href="#i-steps"/></svg></span>
-        <span class="stat-label">Всего задач</span>
-        <strong class="stat-value" id="statTotal">0</strong>
-      </article>
-      <article class="stat glass" style="--sc: var(--violet)">
-        <span class="stat-icon"><svg class="ico"><use href="#i-armor"/></svg></span>
-        <span class="stat-label">В работе</span>
-        <strong class="stat-value" id="statProgress">0</strong>
-      </article>
-      <article class="stat glass" id="overdueCard" style="--sc: var(--core)">
-        <span class="stat-icon"><svg class="ico"><use href="#i-flame"/></svg></span>
-        <span class="stat-label">Горит</span>
-        <strong class="stat-value" id="statOverdue">0</strong>
-      </article>
-      <article class="stat stat-budget glass ws-only" style="--sc: var(--yellow)">
-        <span class="stat-icon"><svg class="ico"><use href="#i-coin"/></svg></span>
-        <span class="stat-label">Бюджет</span>
-        <strong class="stat-value"><span id="statSpent">0</span><i>₽</i></strong>
-        <div class="budget-line">
-          <span class="bar"><span id="budgetBar"></span></span>
-          <small>из <b id="statPlanned">0</b> ₽</small>
+        <div class="toolbar" id="toolbar">
+          <div class="seg seg-status" id="statusFilter" role="tablist" aria-label="Статус">
+            <button type="button" role="tab" class="seg-btn is-active" data-value="active">Активные <i class="cnt" data-count="active">0</i></button>
+            <button type="button" role="tab" class="seg-btn" data-value="progress">В работе <i class="cnt" data-count="progress">0</i></button>
+            <button type="button" role="tab" class="seg-btn" data-value="done">Выполнено <i class="cnt" data-count="done">0</i></button>
+          </div>
+          <div class="dropzones" id="dropzones" aria-hidden="true">
+            <span class="dz" data-drop="todo">К выполнению</span>
+            <span class="dz" data-drop="progress">В работе</span>
+            <span class="dz" data-drop="done">Выполнено</span>
+          </div>
+          <button type="button" class="chip-filter" id="projectChip" hidden></button>
+          <button type="button" class="chip-filter is-hot" id="hotChip" hidden></button>
+          <span class="spacer"></span>
+          <div class="filters-wrap">
+            <button type="button" class="btn btn-ghost btn-sm" id="filtersBtn" aria-haspopup="true" aria-expanded="false">
+              <svg class="ico"><use href="#i-filter"/></svg><span>Фильтры</span><i class="dot" id="filtersDot" hidden></i>
+            </button>
+            <div class="menu filters-menu" id="filtersMenu" hidden>
+              <label class="field ws-only">
+                <span class="field-label">Тип работы</span>
+                <select id="workFilter" class="select"></select>
+              </label>
+              <label class="field">
+                <span class="field-label">Приоритет</span>
+                <select id="priorityFilter" class="select">
+                  <option value="all">Любой</option>
+                  <option value="critical">P0 · Критический</option>
+                  <option value="high">P1 · Высокий</option>
+                  <option value="medium">P2 · Средний</option>
+                  <option value="low">P3 · Низкий</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field-label">Сортировка</span>
+                <select id="sortSelect" class="select">
+                  <option value="deadline">По сроку</option>
+                  <option value="priority">По приоритету</option>
+                  <option value="created">Сначала новые</option>
+                  <option value="ai">AI-порядок</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm ai-btn" id="aiPlanBtn" title="AI-план (A)">
+            <svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span>
+          </button>
         </div>
-      </article>
-      <article class="stat stat-con glass ws-only" style="--sc: var(--cyan)">
-        <span class="stat-icon"><svg class="ico"><use href="#i-con"/></svg></span>
-        <span class="stat-label">Ближайший конвент</span>
-        <strong class="stat-value" id="conDays">—</strong>
-        <small class="con-name" id="conName">нет в планах</small>
-      </article>
-    </section>
 
-    <!-- ===== Проекты-персонажи ===== -->
-    <section class="projects ws-only" aria-label="Проекты">
-      <header class="section-head">
-        <h2 class="section-title">Проекты <em>персонажи</em></h2>
-        <span class="stitch" aria-hidden="true"></span>
-        <button id="addProjectBtn" class="btn btn-ghost btn-sm" type="button">
-          <svg class="ico"><use href="#i-plus"/></svg><span>Проект</span>
-        </button>
-      </header>
-      <div class="projects-track" id="projectsTrack"></div>
-    </section>
+        <div class="list" id="board" role="list" data-filter="active"></div>
+      </main>
 
-    <!-- ===== Фильтры ===== -->
-    <section class="toolbar glass" aria-label="Фильтры">
-      <div class="seg" id="statusFilter" role="tablist" aria-label="Статус">
-        <span class="seg-ind" aria-hidden="true"></span>
-        <button type="button" role="tab" class="seg-btn is-active" data-value="all">Все</button>
-        <button type="button" role="tab" class="seg-btn" data-value="todo">К выполнению</button>
-        <button type="button" role="tab" class="seg-btn" data-value="progress">В работе</button>
-        <button type="button" role="tab" class="seg-btn" data-value="done">Готово</button>
-      </div>
+      <!-- ===== Панель контракта ===== -->
+      <aside class="panel" id="panel" aria-label="Контракт" hidden></aside>
+      <div class="panel-scrim" id="panelScrim" hidden></div>
+    </div>
 
-      <button type="button" class="filter-chip" id="projectChip" hidden></button>
-
-      <button type="button" class="btn btn-ai btn-sm" id="aiPlanBtn" title="Список дел с AI-приоритетами (A)">
-        <svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span>
-      </button>
-
-      <div class="toolbar-right">
-        <label class="field-inline ws-only">
-          <span>Работа</span>
-          <select id="workFilter" class="select"></select>
-        </label>
-        <label class="field-inline">
-          <span>Приоритет</span>
-          <select id="priorityFilter" class="select">
-            <option value="all">Любой</option>
-            <option value="critical">Критический</option>
-            <option value="high">Высокий</option>
-            <option value="medium">Средний</option>
-            <option value="low">Низкий</option>
-          </select>
-        </label>
-        <label class="field-inline">
-          <span>Сортировка</span>
-          <select id="sortSelect" class="select">
-            <option value="deadline">По дедлайну</option>
-            <option value="priority">По приоритету</option>
-            <option value="created">Сначала новые</option>
-            <option value="ai">AI-порядок</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <!-- ===== Канбан ===== -->
-    <main class="board" id="board" data-filter="all">
-      <section class="column glass" data-status="todo">
-        <header class="column-head">
-          <span class="col-label">К выполнению</span>
-          <span class="col-kanji" aria-hidden="true">待</span>
-          <span class="col-count" data-count="todo">0</span>
-        </header>
-        <div class="column-body" data-drop="todo"></div>
-      </section>
-      <section class="column glass" data-status="progress">
-        <header class="column-head">
-          <span class="col-label">В работе</span>
-          <span class="col-kanji" aria-hidden="true">鍛</span>
-          <span class="col-count" data-count="progress">0</span>
-        </header>
-        <div class="column-body" data-drop="progress"></div>
-      </section>
-      <section class="column glass" data-status="done">
-        <header class="column-head">
-          <span class="col-label">Готово</span>
-          <span class="col-kanji" aria-hidden="true">完</span>
-          <span class="col-count" data-count="done">0</span>
-        </header>
-        <div class="column-body" data-drop="done"></div>
-      </section>
-    </main>
-
-    <footer class="foot">
-      <span><kbd>N</kbd> новая задача</span>
-      <span><kbd>P</kbd> новый проект</span>
-      <span><kbd>A</kbd> AI-план</span>
-      <span><kbd>/</kbd> поиск</span>
-      <span><kbd>Esc</kbd> закрыть</span>
-    </footer>
+    <!-- ===== Таб-бар (телефон) ===== -->
+    <nav class="tabbar" id="tabbar" aria-label="Разделы">
+      <button type="button" class="tab-item is-active" data-tab="list"><svg class="ico"><use href="#i-steps"/></svg><span>Контракты</span></button>
+      <button type="button" class="tab-item" data-tab="dossier"><svg class="ico"><use href="#i-dossier"/></svg><span>Досье</span></button>
+      <button type="button" class="tab-item tab-add" data-tab="add" aria-label="Новый контракт"><span class="tab-plus"><svg class="ico"><use href="#i-plus"/></svg></span></button>
+      <button type="button" class="tab-item" data-tab="ai"><svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span></button>
+      <button type="button" class="tab-item" data-tab="more"><svg class="ico"><use href="#i-menu"/></svg><span>Ещё</span></button>
+    </nav>
   </div>
 
-  <!-- ===== Модалка задачи ===== -->
+  <!-- ===== Новый контракт ===== -->
   <div class="overlay" id="taskOverlay" aria-hidden="true">
-    <form class="modal modal-lg glass" id="taskForm" data-space="workshop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" novalidate>
+    <form class="modal sheet-full" id="taskForm" data-space="workshop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" novalidate>
       <header class="modal-head">
-        <h3 id="modalTitle">Новая задача</h3>
-        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+        <button type="button" class="icon-btn m-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+        <h3 id="modalTitle">Новый контракт</h3>
+        <button type="submit" class="btn btn-primary btn-sm m-only" form="taskForm"><span>Создать</span></button>
+        <button type="button" class="icon-btn d-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
       </header>
 
-      <div class="tabs" role="tablist">
-        <span class="seg-ind" aria-hidden="true"></span>
-        <button type="button" class="tab is-active" data-tab="main">Основное</button>
-        <button type="button" class="tab" data-tab="subs">Этапы <i id="subsCount">0</i></button>
-        <button type="button" class="tab ws-field" data-tab="mats">Материалы <i id="matsCount">0</i></button>
-      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span class="field-label">Название <i class="req" aria-hidden="true"></i></span>
+          <input id="fTitle" class="input input-lg" type="text" maxlength="120" placeholder="Например: Кираса — грунт" required enterkeyhint="done">
+          <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Введи название</small>
+        </label>
 
-      <div class="tab-panels">
-        <section class="tab-panel is-active" data-panel="main">
-          <div class="space-pick" id="fSpace">
-            <label class="space-opt"><input type="radio" name="space" value="workshop" checked><span><svg class="ico"><use href="#i-forge"/></svg>Мастерская</span></label>
-            <label class="space-opt"><input type="radio" name="space" value="personal"><span><svg class="ico"><use href="#i-fan"/></svg>Личное</span></label>
+        <fieldset class="field">
+          <legend class="field-label">Пространство</legend>
+          <div class="seg seg-form" id="fSpace">
+            <label class="seg-opt"><input type="radio" name="space" value="workshop" checked><span>Мастерская</span></label>
+            <label class="seg-opt"><input type="radio" name="space" value="personal"><span>Личное</span></label>
           </div>
+        </fieldset>
 
+        <div class="field-row ws-field">
           <label class="field">
-            <span class="field-label">Название <i>*</i></span>
-            <input id="fTitle" type="text" maxlength="120" placeholder="Что нужно выковать?" required>
-            <small class="field-error">Введите название задачи</small>
+            <span class="field-label">Персонаж</span>
+            <select id="fProject" class="select"></select>
           </label>
-
           <label class="field">
-            <span class="field-label">Описание</span>
-            <textarea id="fDesc" rows="3" maxlength="600" placeholder="Детали, референсы, заметки…"></textarea>
+            <span class="field-label">Тип работы</span>
+            <select id="fWork" class="select"></select>
           </label>
+        </div>
 
-          <div class="field-row ws-field">
-            <label class="field">
-              <span class="field-label">Проект-персонаж</span>
-              <select id="fProject" class="select"></select>
-            </label>
-            <label class="field">
-              <span class="field-label">Тип работы</span>
-              <select id="fWork" class="select"></select>
-            </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Срок</span>
+            <input id="fDeadline" class="input" type="datetime-local">
+            <small class="field-hint mono" id="fDeadlineOut"></small>
+          </label>
+          <label class="field">
+            <span class="field-label">Статус</span>
+            <select id="fStatus" class="select">
+              <option value="todo">К выполнению</option>
+              <option value="progress">В работе</option>
+              <option value="done">Выполнено</option>
+            </select>
+          </label>
+        </div>
+
+        <fieldset class="field">
+          <legend class="field-label">Приоритет</legend>
+          <div class="seg seg-form seg-prio">
+            <label class="seg-opt" data-p="critical"><input type="radio" name="priority" value="critical"><span><b>P0</b> Критич.</span></label>
+            <label class="seg-opt" data-p="high"><input type="radio" name="priority" value="high"><span><b>P1</b> Высокий</span></label>
+            <label class="seg-opt" data-p="medium"><input type="radio" name="priority" value="medium" checked><span><b>P2</b> Средний</span></label>
+            <label class="seg-opt" data-p="low"><input type="radio" name="priority" value="low"><span><b>P3</b> Низкий</span></label>
           </div>
+        </fieldset>
 
-          <div class="field-row">
-            <label class="field">
-              <span class="field-label">Статус</span>
-              <select id="fStatus" class="select">
-                <option value="todo">К выполнению</option>
-                <option value="progress">В работе</option>
-                <option value="done">Готово</option>
-              </select>
-            </label>
-            <label class="field">
-              <span class="field-label">Дедлайн</span>
-              <input id="fDeadline" type="datetime-local">
-            </label>
-          </div>
+        <details class="fold" id="foldDesc">
+          <summary><svg class="ico"><use href="#i-plus"/></svg>Описание</summary>
+          <textarea id="fDesc" class="input" rows="3" maxlength="600" placeholder="Детали, референсы, заметки…"></textarea>
+        </details>
 
-          <fieldset class="field">
-            <legend class="field-label">Приоритет</legend>
-            <div class="chips">
-              <label class="chip" data-p="low"><input type="radio" name="priority" value="low"><span>Низкий</span></label>
-              <label class="chip" data-p="medium"><input type="radio" name="priority" value="medium" checked><span>Средний</span></label>
-              <label class="chip" data-p="high"><input type="radio" name="priority" value="high"><span>Высокий</span></label>
-              <label class="chip" data-p="critical"><input type="radio" name="priority" value="critical"><span>Критический</span></label>
-            </div>
-          </fieldset>
-        </section>
-
-        <section class="tab-panel" data-panel="subs">
-          <p class="panel-hint">Разбей работу на этапы: выкройка → крафт → грунт → покраска…</p>
+        <details class="fold" id="foldSubs">
+          <summary><svg class="ico"><use href="#i-plus"/></svg>Этапы <i class="cnt" id="subsCount">0</i></summary>
           <ul class="editor-list" id="subEditor"></ul>
           <div class="add-row">
-            <input id="subNew" type="text" maxlength="120" placeholder="Новый этап и Enter">
+            <input id="subNew" class="input" type="text" maxlength="120" placeholder="Новый этап, Enter — добавить" enterkeyhint="enter">
             <button type="button" class="btn btn-ghost btn-sm" id="subAdd"><svg class="ico"><use href="#i-plus"/></svg><span>Этап</span></button>
           </div>
-        </section>
+        </details>
 
-        <section class="tab-panel" data-panel="mats">
+        <details class="fold ws-field" id="foldMats">
+          <summary><svg class="ico"><use href="#i-plus"/></svg>Материалы <i class="cnt" id="matsCount">0</i></summary>
           <div class="mat-head"><span>Материал</span><span>Кол-во</span><span>Цена, ₽</span><span>Куплено</span><span></span></div>
-          <ul class="editor-list" id="matEditor"></ul>
+          <ul class="editor-list mat-list" id="matEditor"></ul>
           <div class="add-row">
             <button type="button" class="btn btn-ghost btn-sm" id="matAdd"><svg class="ico"><use href="#i-plus"/></svg><span>Материал</span></button>
             <div class="mat-total">Куплено <b id="matSpent">0 ₽</b> из <b id="matTotal">0 ₽</b></div>
           </div>
-        </section>
+        </details>
       </div>
 
-      <footer class="modal-foot">
+      <footer class="modal-foot d-only">
         <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
         <button type="submit" class="btn btn-primary" id="submitBtn"><span>Создать</span></button>
       </footer>
     </form>
   </div>
 
-  <!-- ===== Модалка проекта ===== -->
+  <!-- ===== Досье персонажа ===== -->
   <div class="overlay" id="projectOverlay" aria-hidden="true">
-    <form class="modal glass" id="projectForm" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle" novalidate>
+    <form class="modal sheet-full" id="projectForm" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle" novalidate>
       <header class="modal-head">
-        <h3 id="projectModalTitle">Новый персонаж</h3>
-        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+        <button type="button" class="icon-btn m-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+        <h3 id="projectModalTitle">Новое досье</h3>
+        <button type="submit" class="btn btn-primary btn-sm m-only" form="projectForm"><span>Сохранить</span></button>
+        <button type="button" class="icon-btn d-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
       </header>
 
-      <label class="field">
-        <span class="field-label">Персонаж / костюм <i>*</i></span>
-        <input id="pName" type="text" maxlength="60" placeholder="Например, Призрачный самурай" required>
-        <small class="field-error">Введите имя персонажа</small>
-      </label>
-      <label class="field">
-        <span class="field-label">Фандом</span>
-        <input id="pFandom" type="text" maxlength="60" placeholder="Игра, аниме или ориджинал">
-      </label>
-      <div class="field-row">
+      <div class="modal-body">
+        <div class="dos dos-preview" id="pPreview" aria-hidden="true"></div>
         <label class="field">
-          <span class="field-label">Конвент / съёмка</span>
-          <input id="pCon" type="text" maxlength="60" placeholder="Название события">
+          <span class="field-label">Персонаж или костюм <i class="req" aria-hidden="true"></i></span>
+          <input id="pName" class="input" type="text" maxlength="60" placeholder="Например, Призрачный самурай" required>
+          <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Введи имя персонажа</small>
         </label>
         <label class="field">
-          <span class="field-label">Дата</span>
-          <input id="pDeadline" type="date">
+          <span class="field-label">Фандом</span>
+          <input id="pFandom" class="input" type="text" maxlength="60" placeholder="Игра, аниме или ориджинал">
         </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Конвент или съёмка</span>
+            <input id="pCon" class="input" type="text" maxlength="60" placeholder="Название события">
+          </label>
+          <label class="field">
+            <span class="field-label">Дата</span>
+            <input id="pDeadline" class="input" type="date">
+          </label>
+        </div>
+        <fieldset class="field">
+          <legend class="field-label">Обложка-арт</legend>
+          <div class="art-pick" id="pArts"></div>
+        </fieldset>
+        <fieldset class="field">
+          <legend class="field-label">Цвет</legend>
+          <div class="swatches" id="pColors"></div>
+        </fieldset>
       </div>
-      <fieldset class="field">
-        <legend class="field-label">Цвет панели</legend>
-        <div class="swatches" id="pColors"></div>
-      </fieldset>
-      <fieldset class="field">
-        <legend class="field-label">Обложка-арт</legend>
-        <div class="art-pick" id="pArts"></div>
-      </fieldset>
 
       <footer class="modal-foot">
         <button type="button" class="btn btn-danger-ghost" id="projectDelete" hidden><svg class="ico"><use href="#i-trash"/></svg><span>Удалить</span></button>
         <span class="spacer"></span>
-        <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
-        <button type="submit" class="btn btn-primary" id="projectSubmit"><span>Создать</span></button>
+        <button type="button" class="btn btn-ghost d-only" data-close><span>Отмена</span></button>
+        <button type="submit" class="btn btn-primary d-only" id="projectSubmit"><span>Создать</span></button>
       </footer>
     </form>
   </div>
 
-  <!-- ===== ToDo · AI-план (в стиле лендинга /promo) ===== -->
+  <!-- ===== AI-план ===== -->
   <div class="overlay" id="aiOverlay" aria-hidden="true">
-    <section class="modal modal-lg ai-modal promo" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
-      <div class="ai-art" aria-hidden="true"><div class="print ai-art-print"><img src="assets/art-flame.jpg" alt="" decoding="async"></div></div>
-      <span class="ai-kanji" aria-hidden="true">策</span>
-
-      <header class="modal-head ai-head">
-        <div>
-          <span class="ai-kicker"><svg class="ico"><use href="#i-spark"/></svg>Gemini · твой ключ</span>
-          <h3 id="aiTitle" class="comic-title">AI-план</h3>
+    <section class="modal modal-lg sheet-full ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+      <header class="modal-head">
+        <button type="button" class="icon-btn m-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-back"/></svg></button>
+        <div class="ai-headline">
+          <h3 id="aiTitle">AI-план</h3>
+          <span class="mono-label" id="aiKeyLabel">Gemini · твой ключ</span>
         </div>
-        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+        <button type="button" class="icon-btn d-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
       </header>
-      <span class="stitch ai-stitch" aria-hidden="true"></span>
 
-      <div class="ai-nokey" id="aiNoKey" hidden>
-        <svg class="ico"><use href="#i-key"/></svg>
-        <p>AI-план работает на твоём личном ключе Gemini. Добавь его — это бесплатно и занимает минуту.</p>
-        <button type="button" class="btn btn-sun btn-sm" id="aiAddKey"><span>Добавить ключ</span></button>
-      </div>
-
-      <form class="ai-ask" id="aiForm">
-        <input id="aiContext" type="text" maxlength="400" autocomplete="off" placeholder="Пожелания: «фестиваль 15 ноября», «сегодня 3 часа», «сначала заказы»…">
-        <button type="submit" class="btn btn-primary" id="aiRun"><svg class="ico"><use href="#i-spark"/></svg><span>Расставить</span></button>
-      </form>
-      <p class="ai-msg" id="aiMsg" role="status"></p>
-
-      <div class="tabs ai-tabs" id="aiTabs" role="tablist">
-        <span class="seg-ind" aria-hidden="true"></span>
-        <button type="button" class="tab is-active" data-aitab="list">Список дел</button>
-        <button type="button" class="tab" data-aitab="spec"><svg class="ico"><use href="#i-doc"/></svg>SPEC.md</button>
-      </div>
-
-      <div class="ai-panel" data-aipanel="list">
-        <div class="ai-focus" id="aiFocus" hidden><b>Фокус на сегодня</b><span id="aiFocusText"></span></div>
-        <ol class="ai-list" id="aiList"></ol>
-      </div>
-
-      <div class="ai-panel" data-aipanel="spec" hidden>
-        <div class="spec-bar">
-          <span class="spec-file"><svg class="ico"><use href="#i-doc"/></svg>SPEC.md</span>
-          <span class="spacer"></span>
-          <button type="button" class="btn btn-ghost btn-sm" id="specCopy"><svg class="ico"><use href="#i-copy"/></svg><span>Копировать</span></button>
-          <button type="button" class="btn btn-ghost btn-sm" id="specDownload"><svg class="ico"><use href="#i-download"/></svg><span>Скачать</span></button>
-          <button type="button" class="btn btn-ghost btn-sm" id="specRawToggle" aria-pressed="false"><svg class="ico"><use href="#i-edit"/></svg><span>Исходник</span></button>
+      <div class="modal-body">
+        <div class="ai-nokey" id="aiNoKey" hidden>
+          <svg class="ico"><use href="#i-key"/></svg>
+          <p>AI-план работает на твоём личном ключе Gemini. Добавь его, чтобы расставить приоритеты.</p>
+          <button type="button" class="btn btn-primary btn-sm" id="aiAddKey"><span>Добавить ключ</span></button>
         </div>
-        <article class="spec-doc" id="specDoc"></article>
-        <pre class="spec-raw" id="specRaw" hidden></pre>
+
+        <form class="ai-ask" id="aiForm">
+          <input id="aiContext" class="input" type="text" maxlength="400" autocomplete="off" placeholder="Условия: «дедлайн 15 ноября», «сегодня 3 часа», «сначала заказы»">
+          <button type="submit" class="btn btn-primary" id="aiRun"><svg class="ico"><use href="#i-spark"/></svg><span>Расставить</span></button>
+        </form>
+        <div class="ai-progress" aria-hidden="true"><span></span></div>
+        <p class="msg" id="aiMsg" role="status"></p>
+
+        <div class="tabs" id="aiTabs" role="tablist">
+          <button type="button" role="tab" class="tab is-active" data-aitab="list">Порядок</button>
+          <button type="button" role="tab" class="tab" data-aitab="spec">SPEC.md</button>
+        </div>
+
+        <div class="ai-panel" data-aipanel="list">
+          <div class="ai-focus" id="aiFocus" hidden><b class="mono-label">Фокус на сегодня</b><span id="aiFocusText"></span></div>
+          <ol class="ai-list" id="aiList"></ol>
+        </div>
+
+        <div class="ai-panel" data-aipanel="spec" hidden>
+          <div class="spec-bar">
+            <span class="spec-file"><svg class="ico"><use href="#i-doc"/></svg>SPEC.md</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-text btn-sm" id="specCopy"><svg class="ico"><use href="#i-copy"/></svg><span>Копировать</span></button>
+            <button type="button" class="btn btn-text btn-sm" id="specDownload"><svg class="ico"><use href="#i-download"/></svg><span>Скачать</span></button>
+            <button type="button" class="btn btn-text btn-sm" id="specRawToggle" aria-pressed="false"><svg class="ico"><use href="#i-edit"/></svg><span>Исходник</span></button>
+          </div>
+          <article class="spec-doc" id="specDoc"></article>
+          <pre class="spec-raw" id="specRaw" hidden></pre>
+        </div>
       </div>
 
       <footer class="modal-foot">
-        <span class="ai-meta" id="aiMeta"></span>
+        <span class="ai-meta mono" id="aiMeta"></span>
         <span class="spacer"></span>
-        <button type="button" class="btn btn-ghost" data-close><span>Закрыть</span></button>
+        <button type="button" class="btn btn-ghost d-only" data-close><span>Закрыть</span></button>
         <button type="button" class="btn btn-primary" id="aiApplyAll" disabled><svg class="ico"><use href="#i-check"/></svg><span>Применить приоритеты</span></button>
       </footer>
     </section>
@@ -489,23 +447,23 @@
 
   <!-- ===== Личный ключ Gemini ===== -->
   <div class="overlay" id="keyOverlay" aria-hidden="true">
-    <form class="modal modal-sm ai-modal promo key-modal" id="keyForm" role="dialog" aria-modal="true" aria-labelledby="keyTitle" novalidate>
-      <header class="modal-head ai-head">
-        <div>
-          <span class="ai-kicker"><svg class="ico"><use href="#i-key"/></svg>Только для тебя</span>
-          <h3 id="keyTitle" class="comic-title">AI-ключ</h3>
-        </div>
+    <form class="modal modal-sm key-modal" id="keyForm" role="dialog" aria-modal="true" aria-labelledby="keyTitle" novalidate>
+      <header class="modal-head">
+        <h3 id="keyTitle">AI-ключ Gemini</h3>
         <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
       </header>
-      <p class="key-status" id="keyStatus">Ключ не добавлен</p>
-      <label class="field">
-        <span class="field-label">Gemini API-ключ</span>
-        <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
-        <small class="field-hint">Получить бесплатно: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → Create API key. Ключ шифруется на сервере и обратно не показывается.</small>
-      </label>
-      <p class="ai-msg" id="keyMsg" role="status"></p>
-      <footer class="modal-foot">
-        <button type="button" class="btn btn-danger-ghost btn-sm" id="keyDelete" hidden><svg class="ico"><use href="#i-trash"/></svg><span>Удалить</span></button>
+      <div class="modal-body">
+        <p class="key-status" id="keyStatus">Ключ не добавлен</p>
+        <label class="field">
+          <span class="field-label">Ключ</span>
+          <input id="keyInput" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+          <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Вставь ключ</small>
+          <small class="field-hint">Получить: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → Create API key. Ключ хранится на сервере в зашифрованном виде, в интерфейсе видны только последние символы.</small>
+        </label>
+        <p class="msg" id="keyMsg" role="status"></p>
+      </div>
+      <footer class="modal-foot key-foot">
+        <button type="button" class="btn btn-danger-ghost btn-sm" id="keyDelete" hidden><svg class="ico"><use href="#i-trash"/></svg><span>Удалить ключ</span></button>
         <span class="spacer"></span>
         <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
         <button type="submit" class="btn btn-primary" id="keySave"><span>Сохранить</span></button>
@@ -515,65 +473,102 @@
 
   <!-- ===== Подтверждение ===== -->
   <div class="overlay" id="confirmOverlay" aria-hidden="true">
-    <div class="modal modal-sm glass" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
-      <div class="confirm-icon"><svg class="ico"><use href="#i-trash"/></svg></div>
-      <h3 id="confirmTitle">Уничтожить?</h3>
-      <p class="confirm-text" id="confirmText"></p>
+    <div class="modal modal-xs" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+      <header class="modal-head"><h3 id="confirmTitle">Удалить контракт?</h3></header>
+      <div class="modal-body"><p class="confirm-text" id="confirmText"></p></div>
       <footer class="modal-foot">
-        <button type="button" class="btn btn-ghost" data-close><span>Отмена</span></button>
+        <button type="button" class="btn btn-ghost" id="confirmCancel" data-close><span>Отмена</span></button>
         <button type="button" class="btn btn-danger" id="confirmBtn"><span>Удалить</span></button>
       </footer>
     </div>
   </div>
 
+  <!-- ===== Горячие клавиши ===== -->
+  <div class="overlay" id="keysOverlay" aria-hidden="true">
+    <div class="modal modal-xs" role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+      <header class="modal-head">
+        <h3 id="keysTitle">Горячие клавиши</h3>
+        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+      <div class="modal-body">
+        <dl class="keys">
+          <dt><kbd>N</kbd></dt><dd>Новый контракт</dd>
+          <dt><kbd>P</kbd></dt><dd>Новое досье</dd>
+          <dt><kbd>A</kbd></dt><dd>AI-план</dd>
+          <dt><kbd>/</kbd></dt><dd>Поиск</dd>
+          <dt><kbd>Enter</kbd></dt><dd>Открыть выбранный контракт</dd>
+          <dt><kbd>Delete</kbd></dt><dd>Удалить выбранный контракт</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Закрыть окно или панель</dd>
+          <dt><kbd>?</kbd></dt><dd>Эта подсказка</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Меню статуса строки ===== -->
+  <div class="menu status-menu" id="statusMenu" role="menu" hidden>
+    <button type="button" role="menuitemradio" class="menu-item" data-status="todo"><span class="sdot" data-s="todo"></span>К выполнению</button>
+    <button type="button" role="menuitemradio" class="menu-item" data-status="progress"><span class="sdot" data-s="progress"></span>В работе</button>
+    <button type="button" role="menuitemradio" class="menu-item" data-status="done"><span class="sdot" data-s="done"></span>Выполнено</button>
+    <div class="menu-sep"></div>
+    <button type="button" role="menuitem" class="menu-item" data-row="open"><svg class="ico"><use href="#i-edit"/></svg>Открыть</button>
+    <button type="button" role="menuitem" class="menu-item is-danger" data-row="delete"><svg class="ico"><use href="#i-trash"/></svg>Удалить</button>
+  </div>
+
   <!-- ===== Вход и регистрация ===== -->
   <section class="auth" id="auth" hidden aria-labelledby="authTitle">
-    <div class="auth-gallery" id="authGallery" aria-hidden="true"></div>
+    <figure class="auth-art">
+      <span class="frame scan-once">
+        <img src="assets/art-banner.jpg" alt="Призрачный самурай — арт" decoding="async">
+      </span>
+      <figcaption class="mono-label">Досье #01 · Призрачный самурай</figcaption>
+    </figure>
 
     <div class="auth-side">
-      <form class="auth-card glass" id="authForm" novalidate>
-        <span class="auth-logo"><img src="assets/logo.webp" alt="Evil's Forge"></span>
-        <h2 class="auth-title" id="authTitle">Вход в кузницу</h2>
-        <p class="auth-sub" id="authSub">Твои костюмы, этапы и бюджет — на любом устройстве.</p>
+      <form class="auth-card" id="authForm" data-mode="login" novalidate>
+        <img class="auth-logo" src="assets/logo.webp" alt="Evil's Forge" width="50" height="64">
+        <h1 class="auth-title" id="authTitle">Вход в кузницу</h1>
+        <p class="auth-sub" id="authSub">Досье, контракты и бюджет — на любом устройстве.</p>
 
-        <div class="tabs auth-tabs" id="authTabs" role="tablist">
-          <span class="seg-ind" aria-hidden="true"></span>
-          <button type="button" class="tab is-active" data-mode="login">Вход</button>
-          <button type="button" class="tab" data-mode="register">Регистрация</button>
+        <div class="seg seg-full" id="authTabs" role="tablist">
+          <button type="button" role="tab" class="tab seg-btn is-active" data-mode="login">Вход</button>
+          <button type="button" role="tab" class="tab seg-btn" data-mode="register">Регистрация</button>
         </div>
 
         <label class="field" data-only="register">
-          <span class="field-label">Имя / ник</span>
-          <input id="aName" type="text" maxlength="40" autocomplete="nickname" placeholder="Как тебя называть?">
+          <span class="field-label">Имя или ник</span>
+          <input id="aName" class="input" type="text" maxlength="40" autocomplete="nickname" placeholder="Как тебя называть?">
         </label>
         <label class="field">
           <span class="field-label">Почта</span>
-          <input id="aEmail" type="email" autocomplete="email" placeholder="you@mail.ru" required>
-          <small class="field-error">Введите корректную почту</small>
+          <input id="aEmail" class="input" type="email" autocomplete="email" placeholder="you@mail.ru" required inputmode="email" enterkeyhint="next">
+          <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Проверь почту — в ней ошибка</small>
         </label>
         <label class="field">
           <span class="field-label">Пароль</span>
           <span class="pass-wrap">
-            <input id="aPass" type="password" minlength="6" autocomplete="current-password" placeholder="Минимум 6 символов" required>
+            <input id="aPass" class="input" type="password" minlength="6" autocomplete="current-password" placeholder="Минимум 6 символов" required enterkeyhint="go">
             <button type="button" class="pass-eye" id="aEye" aria-label="Показать пароль"><svg class="ico"><use href="#i-eye"/></svg></button>
           </span>
-          <small class="field-error">Пароль — минимум 6 символов</small>
+          <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Пароль — минимум 6 символов</small>
         </label>
 
-        <label class="field" data-only="register">
-          <span class="field-label">Gemini API-ключ <i class="opt">для AI-плана · можно позже</i></span>
-          <input id="aKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
-          <small class="field-hint">Свой ключ бесплатно: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Хранится зашифрованным, никому не виден.</small>
-        </label>
+        <details class="fold" data-only="register">
+          <summary><svg class="ico"><use href="#i-plus"/></svg>Подключить AI-план <span class="opt">необязательно</span></summary>
+          <label class="field">
+            <span class="field-label">Ключ Gemini</span>
+            <input id="aKey" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+            <small class="field-hint">Получить: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Хранится зашифрованным, никому не виден. Можно добавить позже в меню.</small>
+          </label>
+        </details>
 
-        <p class="auth-msg" id="authMsg" role="status"></p>
+        <p class="msg auth-msg" id="authMsg" role="status"></p>
 
-        <button type="submit" class="btn btn-primary auth-submit" id="authSubmit"><span>Войти</span></button>
+        <button type="submit" class="btn btn-primary btn-lg btn-block auth-submit" id="authSubmit"><span>Войти</span></button>
 
         <div class="auth-local" id="authLocal">
-          <span class="stitch" aria-hidden="true"></span>
-          <p id="authLocalText">Можно работать и без аккаунта — данные останутся только на этом устройстве.</p>
-          <button type="button" class="btn btn-ghost btn-sm" id="authLocalBtn"><span>Без аккаунта</span></button>
+          <button type="button" class="btn btn-ghost btn-lg btn-block" id="authLocalBtn"><span>Продолжить без аккаунта</span></button>
+          <p id="authLocalText">Данные останутся только в этом браузере. Очистишь браузер — они пропадут.</p>
         </div>
       </form>
     </div>
@@ -581,6 +576,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=20"></script>
 </body>
 </html>

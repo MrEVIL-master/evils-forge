@@ -41,18 +41,17 @@
     { file: 'art-squad.jpg', title: 'Отряд' }
   ];
   const DEMO_ART = { 'Призрачный самурай': 'art-banner.jpg', 'Гейша-они': 'art-geisha.jpg', 'Дух-хранитель': 'art-spirit-jump.jpg' };
-  const RING_LEN = 301.6;   // 2π·48
-  const MINI_LEN = 100.53;  // 2π·16
-  const EASE = 'cubic-bezier(.22, 1, .36, 1)';
   const DAY = 864e5;
   const INK = '#0b0a14';
 
   const STATUSES = ['todo', 'progress', 'done'];
+  const STATUS_LABEL = { todo: 'К выполнению', progress: 'В работе', done: 'Выполнено' };
+  const STATUS_SHORT = { todo: 'Ждёт', progress: 'В работе', done: 'Готово' };
   const PRIORITY = {
-    low: { label: 'Низкий', weight: 1 },
-    medium: { label: 'Средний', weight: 2 },
-    high: { label: 'Высокий', weight: 3 },
-    critical: { label: 'Критический', weight: 4 }
+    low: { label: 'Низкий', weight: 1, code: 'P3' },
+    medium: { label: 'Средний', weight: 2, code: 'P2' },
+    high: { label: 'Высокий', weight: 3, code: 'P1' },
+    critical: { label: 'Критический', weight: 4, code: 'P0' }
   };
   const WORK = {
     sewing: { label: 'Шитьё', icon: 'sew', color: '#e8175d' },
@@ -66,53 +65,72 @@
     other: { label: 'Другое', icon: 'other', color: '#a59cc4' }
   };
   const PROJECT_COLORS = ['#e8175d', '#6a3aa2', '#2f62d6', '#2ff0e6', '#3ff2b0', '#f5e11a', '#ff7ab6', '#ff3b4e'];
-  const EMPTY_KANJI = { todo: '待', progress: '鍛', done: '完' };
+  const SPACE_NAME = { workshop: 'Мастерская', personal: 'Личное', all: 'Всё' };
 
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
   const root = document.documentElement;
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // режим анимаций: «Выкл» ставится по настройке системы или вручную в меню (см. <head>)
+  let reducedMotion = root.dataset.motion === 'off';
+  const phoneQuery = matchMedia('(max-width: 767px)');
+  const isPhone = () => phoneQuery.matches;
 
   const el = {
-    bg: $('.bg'),
+    app: $('#app'),
+    hud: $('#hud'),
+    layout: $('#layout'),
     board: $('#board'),
     search: $('#search'),
-    themeToggle: $('#themeToggle'),
+    searchOpen: $('#searchOpen'),
+    searchCancel: $('#searchCancel'),
     addBtn: $('#addBtn'),
     addProjectBtn: $('#addProjectBtn'),
     spaceSwitch: $('#spaceSwitch'),
+    spaceBtn: $('#spaceBtn'),
+    spaceMenu: $('#spaceMenu'),
+    spaceLabel: $('#spaceLabel'),
     statusFilter: $('#statusFilter'),
+    toolbar: $('#toolbar'),
+    dropzones: $('#dropzones'),
     workFilter: $('#workFilter'),
     priorityFilter: $('#priorityFilter'),
     sortSelect: $('#sortSelect'),
+    filtersBtn: $('#filtersBtn'),
+    filtersMenu: $('#filtersMenu'),
+    filtersDot: $('#filtersDot'),
     projectChip: $('#projectChip'),
+    hotChip: $('#hotChip'),
     projectsTrack: $('#projectsTrack'),
+    dossierSum: $('#dossierSum'),
+    tabbar: $('#tabbar'),
 
-    ringBar: $('#ringBar'),
-    ringPct: $('#ringPct'),
+    statline: $('#statline'),
     ringDone: $('#ringDone'),
     ringTotal: $('#ringTotal'),
-    statTotal: $('#statTotal'),
     statProgress: $('#statProgress'),
     statOverdue: $('#statOverdue'),
     overdueCard: $('#overdueCard'),
     statSpent: $('#statSpent'),
     statPlanned: $('#statPlanned'),
-    budgetBar: $('#budgetBar'),
+    conStat: $('#conStat'),
     conDays: $('#conDays'),
     conName: $('#conName'),
+
+    panel: $('#panel'),
+    panelScrim: $('#panelScrim'),
+    statusMenu: $('#statusMenu'),
 
     taskOverlay: $('#taskOverlay'),
     taskForm: $('#taskForm'),
     modalTitle: $('#modalTitle'),
     submitBtn: $('#submitBtn'),
-    tabs: $('#taskForm .tabs'),
     fTitle: $('#fTitle'),
     fDesc: $('#fDesc'),
     fProject: $('#fProject'),
     fWork: $('#fWork'),
     fStatus: $('#fStatus'),
     fDeadline: $('#fDeadline'),
+    fDeadlineOut: $('#fDeadlineOut'),
     subsCount: $('#subsCount'),
     matsCount: $('#matsCount'),
     subEditor: $('#subEditor'),
@@ -134,9 +152,9 @@
     pDeadline: $('#pDeadline'),
     pColors: $('#pColors'),
     pArts: $('#pArts'),
+    pPreview: $('#pPreview'),
 
     auth: $('#auth'),
-    authGallery: $('#authGallery'),
     authForm: $('#authForm'),
     authTabs: $('#authTabs'),
     authTitle: $('#authTitle'),
@@ -163,7 +181,8 @@
     umLogin: $('#umLogin'),
     umLogout: $('#umLogout'),
     umReset: $('#umReset'),
-    artsToggle: $('#artsToggle'),
+    umKeys: $('#umKeys'),
+    motionToggle: $('#motionToggle'),
 
     aiPlanBtn: $('#aiPlanBtn'),
     aiOverlay: $('#aiOverlay'),
@@ -179,6 +198,7 @@
     aiNoKey: $('#aiNoKey'),
     aiAddKey: $('#aiAddKey'),
     aiTabs: $('#aiTabs'),
+    aiKeyLabel: $('#aiKeyLabel'),
     specDoc: $('#specDoc'),
     specRaw: $('#specRaw'),
     specCopy: $('#specCopy'),
@@ -199,6 +219,8 @@
     confirmTitle: $('#confirmTitle'),
     confirmText: $('#confirmText'),
     confirmBtn: $('#confirmBtn'),
+    confirmCancel: $('#confirmCancel'),
+    keysOverlay: $('#keysOverlay'),
     toasts: $('#toasts')
   };
 
@@ -206,14 +228,14 @@
     tasks: [],
     projects: [],
     space: root.dataset.space || 'all',
-    filter: { status: 'all', priority: 'all', work: 'all', project: null, query: '', sort: 'deadline' },
-    expanded: new Set(),
+    filter: { status: 'active', priority: 'all', work: 'all', project: null, query: '', sort: 'deadline', hot: false },
+    selectedId: null,
     editingId: null,
     editingProjectId: null,
     draft: { subtasks: [], materials: [] },
     confirmCb: null,
     lastFocus: [],
-    postersShown: false,
+    shownIds: null,
     updatedAt: 0
   };
 
@@ -326,8 +348,6 @@
     if (state.filter.project && !ids.has(state.filter.project)) state.filter.project = null;
     if (reset) {
       state.filter.project = null;
-      state.expanded.clear();
-      state.postersShown = false;
     }
   }
 
@@ -375,8 +395,8 @@
     const now = Date.now();
     const h = 36e5;
     const P = (name, fandom, convention, days, color) => ({ id: uid(), name, fandom, convention, deadline: now + days * DAY, color, art: DEMO_ART[name] || '', createdAt: now - DAY * 10 });
-    const p1 = P('Призрачный самурай', 'Ориджинал · Evil\'s Forge', 'Animate Fest', 21, '#e8175d');
-    const p2 = P('Гейша-они', 'Ориджинал · арт-серия', 'Starcon', 45, '#6a3aa2');
+    const p1 = P('Призрачный самурай', 'Ориджинал · Evil\'s Forge', 'Фестиваль', 21, '#e8175d');
+    const p2 = P('Гейша-они', 'Ориджинал · арт-серия', 'Конвент', 45, '#6a3aa2');
     const p3 = P('Дух-хранитель', 'Ориджинал', 'Студийный фотосет', 60, '#2ff0e6');
 
     const S = list => list.map(x => typeof x === 'string' ? { text: x, done: false } : { text: x[0], done: true });
@@ -399,7 +419,7 @@
         title: 'Катана с бирюзовой подсветкой', description: '',
         materials: M([['ПВХ-труба', 1, 300, 1], ['LED-лента бирюзовая', 1, 700], ['Аккумулятор 18650', 1, 900]]) }, 4),
       T({ space: 'workshop', projectId: p1.id, workType: 'con', status: 'todo', priority: 'critical', deadline: now + DAY * 3,
-        title: 'Заявка на дефиле Animate Fest', description: 'Подать до закрытия регистрации, приложить референсы.' }, 2),
+        title: 'Заявка на дефиле фестиваля', description: 'Подать до закрытия регистрации, приложить референсы.' }, 2),
       T({ space: 'workshop', projectId: p1.id, workType: 'makeup', status: 'done', priority: 'low', deadline: now - DAY * 2,
         title: 'Тест грима: голубая кожа и шрамы', description: '',
         subtasks: S([['Тон кожи'], ['Шрамы маджентой']]), materials: M([['Аквагрим голубой', 1, 850, 1]]) }, 9),
@@ -450,11 +470,11 @@
   }
 
   function getTasks() {
-    const { status, priority, work, query, sort } = state.filter;
+    const { priority, work, query, sort, hot } = state.filter;
     const q = query.trim().toLowerCase();
     const workOn = state.space !== 'personal' && work !== 'all';
     const list = scopeTasks().filter(t => {
-      if (status !== 'all' && t.status !== status) return false;
+      if (hot && !isOverdue(t)) return false;
       if (priority !== 'all' && t.priority !== priority) return false;
       if (workOn && t.workType !== work) return false;
       if (!q) return true;
@@ -496,7 +516,6 @@
     const index = state.tasks.findIndex(t => t.id === id);
     if (index === -1) return null;
     const [task] = state.tasks.splice(index, 1);
-    state.expanded.delete(id);
     save();
     return { task, index };
   }
@@ -540,287 +559,318 @@
     save();
   }
 
-  /* ---------- Рендер: карточки ---------- */
-  function dueHtml(t) {
-    if (t.status === 'done') {
-      const when = t.completedAt ? 'выковано ' + relative(t.completedAt) : 'выковано';
-      return `<span class="due is-done">${icon('check')}${escapeHtml(when)}</span>`;
+  /* ---------- Срок по-человечески ---------- */
+  const timeFmt = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' });
+  const dateFmt = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' });
+  const startOfDay = ms => new Date(ms).setHours(0, 0, 0, 0);
+  const dayDiff = ms => Math.round((startOfDay(ms) - startOfDay(Date.now())) / DAY);
+  const daysWord = n => `${n} ${plural(n, ['день', 'дня', 'дней'])}`;
+
+  // «через 2 дня», «завтра», «сегодня до 19:00», «просрочено на 12 ч»; часы — только в последние сутки
+  function humanDue(t) {
+    if (t.status === 'done') return { text: t.completedAt ? 'закрыт ' + relative(t.completedAt) : 'закрыт', cls: 'is-done' };
+    if (t.deadline == null) return { text: 'без срока', cls: 'is-none' };
+    const diff = t.deadline - Date.now();
+    if (diff < 0) {
+      const ago = -diff;
+      if (ago < 36e5) return { text: `просрочено на ${Math.max(1, Math.round(ago / 6e4))} мин`, cls: 'is-overdue' };
+      if (ago < DAY) return { text: `просрочено на ${Math.round(ago / 36e5)} ч`, cls: 'is-overdue' };
+      return { text: `просрочено на ${daysWord(Math.round(ago / DAY))}`, cls: 'is-overdue' };
     }
-    if (t.deadline == null) return `<span class="due">${icon('clock')}без дедлайна</span>`;
-    const abs = `<span class="due-abs">· ${escapeHtml(absFmt.format(t.deadline))}</span>`;
-    if (isOverdue(t)) return `<span class="due is-overdue"><span class="due-core"></span>горит ${escapeHtml(relative(t.deadline))}</span>${abs}`;
-    const soon = t.deadline - Date.now() < DAY;
-    return `<span class="due${soon ? ' is-soon' : ''}">${icon('clock')}${escapeHtml(relative(t.deadline))}</span>${abs}`;
+    const dd = dayDiff(t.deadline);
+    if (dd <= 0) return { text: `сегодня до ${timeFmt.format(t.deadline)}`, cls: 'is-soon' };
+    if (dd === 1) return diff < DAY ? { text: `завтра до ${timeFmt.format(t.deadline)}`, cls: 'is-soon' } : { text: 'завтра', cls: '' };
+    if (dd <= 30) return { text: `через ${daysWord(dd)}`, cls: '' };
+    return { text: 'до ' + dateFmt.format(t.deadline), cls: '' };
   }
 
-  function subsHtml(t) {
-    if (!t.subtasks.length) return '';
-    const done = t.subtasks.filter(s => s.done).length;
-    const pct = Math.round((done / t.subtasks.length) * 100);
-    const items = t.subtasks.map(s =>
-      `<li><button type="button" class="sub-item${s.done ? ' is-done' : ''}" data-act="sub" data-sid="${s.id}">${escapeHtml(s.text)}</button></li>`
-    ).join('');
+  function dueHtml(t) {
+    const d = humanDue(t);
+    const title = t.deadline != null ? ` title="Срок: ${escapeHtml(absFmt.format(t.deadline))}"` : '';
+    return `<span class="due ${d.cls}"${title}>${escapeHtml(d.text)}</span>`;
+  }
+
+  // срок до конвента в досье: «3 дня до Comic Con»
+  function conDue(p) {
+    if (p.deadline == null) return p.convention ? { text: p.convention, cls: '' } : null;
+    const dd = dayDiff(p.deadline);
+    if (dd < 0) return { text: p.convention ? `${p.convention} — прошёл` : 'дата прошла', cls: 'is-past' };
+    if (dd === 0) return { text: p.convention ? `${p.convention} сегодня` : 'сегодня', cls: 'is-soon' };
+    return { text: `${daysWord(dd)} до ${p.convention || 'даты'}`, cls: dd <= 7 ? 'is-soon' : '' };
+  }
+
+  const fmtStamp = ms => {
+    if (ms == null) return '';
+    const d = new Date(ms);
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  function projectOptions(selected) {
+    return '<option value="">Без персонажа</option>' +
+      state.projects.map(p => `<option value="${p.id}"${p.id === selected ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+  }
+  function workOptions(selected) {
+    return '<option value="">Не указан</option>' +
+      Object.entries(WORK).map(([k, w]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${w.label}</option>`).join('');
+  }
+
+  /* ---------- Рендер: строки контрактов ---------- */
+  const statusMatch = (t, status) => (status === 'active' ? t.status !== 'done' : t.status === status);
+
+  function taskHtml(t) {
+    const cls = ['task'];
+    if (t.status === 'done') cls.push('is-done');
+    if (isOverdue(t)) cls.push('is-overdue');
+    if (t.id === state.selectedId) cls.push('is-selected');
+    if (state.knownIds && !state.knownIds.has(t.id)) cls.push('is-new');
+
+    const meta = [];
+    const proj = projectById(t.projectId);
+    if (proj && !state.filter.project) meta.push(escapeHtml(proj.name));
+    const work = t.workType && WORK[t.workType];
+    if (work) meta.push(work.label);
+    if (state.space === 'all' && t.space === 'personal') meta.push('Личное');
+    if (t.subtasks.length) meta.push(`этапы <span class="num">${t.subtasks.filter(s => s.done).length}/${t.subtasks.length}</span>`);
+    if (state.filter.sort === 'ai' && t.aiRank != null && t.status !== 'done') meta.push(`<span class="ai-rank">AI <span class="num">#${t.aiRank + 1}</span></span>`);
+    if (!meta.length && t.description) meta.push(escapeHtml(t.description));
+
+    const planned = taskPlanned(t);
+    const moneyHtml = planned > 0 ? `<span class="money" title="Куплено / всего"><b>${money(taskSpent(t))}</b> / ${money(planned)} ₽</span>` : '';
+    const p = PRIORITY[t.priority];
+
     return `
-      <div class="subs">
-        <button type="button" class="sub-toggle" data-act="expand" aria-expanded="${state.expanded.has(t.id)}">
-          ${icon('steps')}<span>Этапы <b data-subcount>${done}/${t.subtasks.length}</b></span>
-          <span class="bar"><span data-subbar style="width:${pct}%"></span></span>
-          <svg class="ico chev"><use href="#i-chev"/></svg>
-        </button>
-        <div class="sub-wrap"><div class="sub-inner"><ul class="sub-list">${items}</ul></div></div>
+      <div class="${cls.join(' ')}" data-id="${t.id}" data-priority="${t.priority}" draggable="true" tabindex="0" role="listitem">
+        <span class="prio" aria-hidden="true"></span><span class="prio-cut" aria-hidden="true"></span>
+        <button class="check" type="button" data-act="toggle" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Закрыть контракт'}: ${escapeHtml(t.title)}">${icon('check')}</button>
+        <div class="task-main">
+          <h3 class="task-title">${escapeHtml(t.title)}</h3>
+          ${meta.length ? `<p class="task-meta">${meta.join('<span class="sep">·</span>')}</p>` : ''}
+        </div>
+        <div class="task-side">${dueHtml(t)}${moneyHtml}</div>
+        <span class="plabel" title="Приоритет: ${p.label}">${p.code}</span>
+        <div class="task-end">
+          <button class="status-btn" type="button" data-act="status" aria-haspopup="menu" aria-label="Статус: ${STATUS_LABEL[t.status]}. Изменить"><span class="sdot" data-s="${t.status}"></span>${STATUS_SHORT[t.status]}</button>
+          <div class="task-actions">
+            <button class="icon-btn" type="button" data-act="edit" aria-label="Открыть контракт" title="Открыть">${icon('edit')}</button>
+            <button class="icon-btn" type="button" data-act="delete" aria-label="Удалить контракт" title="Удалить">${icon('trash')}</button>
+          </div>
+        </div>
       </div>`;
   }
 
-  function taskHtml(t) {
-    const cls = ['task', 'glass'];
-    if (t.status === 'done') cls.push('is-done');
-    if (isOverdue(t)) cls.push('is-overdue');
-    if (state.expanded.has(t.id)) cls.push('open');
-
-    const tags = [];
-    const proj = projectById(t.projectId);
-    if (proj && !state.filter.project) {
-      tags.push(`<span class="tag tag-project" style="--tc:${proj.color};color:${inkOn(proj.color)}"><span>${escapeHtml(proj.name)}</span></span>`);
+  function emptyHtml() {
+    const f = state.filter;
+    const filtered = f.query.trim() || f.priority !== 'all' || f.hot || (f.work !== 'all' && state.space !== 'personal');
+    if (filtered) {
+      return `<div class="empty">Ничего не найдено
+        <button type="button" class="btn btn-ghost btn-sm" data-empty="reset"><span>Сбросить фильтры</span></button></div>`;
     }
-    const work = t.workType && WORK[t.workType];
-    if (work) tags.push(`<span class="tag" style="--tc:${work.color}">${icon(work.icon)}${work.label}</span>`);
-    if (state.space === 'all' && t.space === 'personal') tags.push(`<span class="tag" style="--tc:#9b6bff">${icon('fan')}Личное</span>`);
-
-    const planned = taskPlanned(t);
-    const moneyHtml = planned > 0
-      ? `<span class="money" title="Куплено / всего">${icon('coin')}<b>${money(taskSpent(t))}</b>&nbsp;/ ${money(planned)} ₽</span>` : '';
-
-    return `
-      <article class="${cls.join(' ')}" data-id="${t.id}" data-priority="${t.priority}" draggable="true" tabindex="0">
-        <span class="task-blade"></span>
-        <div class="task-top">
-          <button class="check" type="button" data-act="toggle" aria-label="${t.status === 'done' ? 'Вернуть в работу' : 'Отметить выполненной'}">${icon('check')}</button>
-          <div class="task-main">
-            ${tags.length ? `<div class="task-tags">${tags.join('')}</div>` : ''}
-            <h3 class="task-title">${escapeHtml(t.title)}</h3>
-            ${t.description ? `<p class="task-desc">${escapeHtml(t.description)}</p>` : ''}
-          </div>
-          <div class="task-actions">
-            <button class="mini-btn" type="button" data-act="edit" aria-label="Редактировать" title="Редактировать">${icon('edit')}</button>
-            <button class="mini-btn" type="button" data-act="delete" aria-label="Удалить" title="Удалить">${icon('trash')}</button>
-          </div>
-        </div>
-        ${subsHtml(t)}
-        <div class="task-meta">
-          <span class="badge"><span>${PRIORITY[t.priority].label}</span></span>
-          ${state.filter.sort === 'ai' && t.aiRank != null && t.status !== 'done'
-            ? `<span class="ai-rank" title="${escapeHtml(t.aiReason || 'Место в AI-плане')}">${icon('spark')}#${t.aiRank + 1}</span>` : ''}
-          ${dueHtml(t)}
-          ${moneyHtml}
-        </div>
-      </article>`;
+    if (f.status === 'done') return '<div class="empty">Закрытых пока нет</div>';
+    if (f.status === 'progress') return '<div class="empty">Сейчас ничего не в работе<small>Поставь контракту статус «В работе» — кнопкой в строке.</small></div>';
+    return `<div class="empty">Нет активных контрактов
+      <button type="button" class="btn btn-primary btn-sm" data-empty="task">${icon('plus')}<span>Контракт</span></button></div>`;
   }
 
-  function emptyHtml(status) {
-    const filtered = state.filter.query.trim() || state.filter.priority !== 'all' || (state.filter.work !== 'all' && state.space !== 'personal');
-    const fresh = !filtered && status === 'todo' && scopeTasks().length === 0;
-    if (fresh) {
-      return `<div class="empty empty-fresh"><span class="empty-kanji">${EMPTY_KANJI[status]}</span>
-        <span>Здесь пока пусто — выкуй первую задачу</span>
-        <button type="button" class="btn btn-primary btn-sm empty-add" data-empty="task"><svg class="ico"><use href="#i-plus"/></svg><span>Первая задача</span></button></div>`;
+  function render({ flashId = null } = {}) {
+    const all = getTasks();
+    const list = all.filter(t => statusMatch(t, state.filter.status));
+    // фокус остаётся на той же строке после перерисовки
+    const active = document.activeElement;
+    const focusRow = active && el.board.contains(active) ? active.closest('.task') : null;
+    const focusId = focusRow && focusRow.dataset.id;
+    const focusAct = focusId && active !== focusRow && active.dataset ? active.dataset.act : null;
+    el.board.innerHTML = list.length ? list.map(taskHtml).join('') : emptyHtml();
+    if (focusId) {
+      const row = $(`.task[data-id="${focusId}"]`, el.board);
+      const target = row && (focusAct ? $(`[data-act="${focusAct}"]`, row) : row);
+      if (target) target.focus({ preventScroll: true });
     }
-    const text = filtered ? 'Ничего не найдено' : (status === 'done' ? 'Пока ничего не выковано' : 'Пусто — перетащи задачу сюда');
-    return `<div class="empty"><span class="empty-kanji">${EMPTY_KANJI[status]}</span><span>${text}</span></div>`;
-  }
-
-  function render({ animate = true, flashId = null } = {}) {
-    const motion = animate && !reducedMotion;
-    const prev = new Map();
-    if (motion) {
-      $$('.task', el.board).forEach(node => {
-        const r = node.getBoundingClientRect();
-        if (r.width) prev.set(node.dataset.id, r);
-      });
-    }
-
-    const list = getTasks();
-    STATUSES.forEach(status => {
-      const items = list.filter(t => t.status === status);
-      $(`.column-body[data-drop="${status}"]`, el.board).innerHTML = items.length ? items.map(taskHtml).join('') : emptyHtml(status);
-      const counter = $(`.col-count[data-count="${status}"]`, el.board);
-      const n = String(items.length);
-      if (counter.textContent !== n) {
-        counter.textContent = n;
-        counter.classList.remove('bump');
-        void counter.offsetWidth;
-        counter.classList.add('bump');
-      }
+    ['active', 'progress', 'done'].forEach(s => {
+      const c = $(`[data-count="${s}"]`, el.statusFilter);
+      if (c) c.textContent = all.filter(t => statusMatch(t, s)).length;
     });
-
-    // FLIP: карточки плавно переезжают на новые места
-    if (motion) {
-      let fresh = 0;
-      $$('.task', el.board).forEach(node => {
-        const r = node.getBoundingClientRect();
-        if (!r.width) return;
-        const p = prev.get(node.dataset.id);
-        if (p) {
-          const dx = p.left - r.left, dy = p.top - r.top;
-          if (dx || dy) {
-            node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-              { duration: 620, easing: 'cubic-bezier(.3, 1.25, .5, 1)' });
-          }
-        } else {
-          node.animate([
-            { opacity: 0, transform: 'translateY(18px) rotate(-1.5deg) scale(.96)', filter: 'blur(6px)' },
-            { opacity: 1, transform: 'none', filter: 'blur(0)' }
-          ], { duration: 560, delay: Math.min(fresh++, 12) * 45, easing: EASE, fill: 'backwards' });
-        }
-      });
-    }
+    state.knownIds = new Set(state.tasks.map(t => t.id));
 
     if (flashId) {
       const node = $(`.task[data-id="${flashId}"]`, el.board);
       if (node) {
         node.classList.add('flash');
-        node.addEventListener('animationend', () => node.classList.remove('flash'), { once: true });
+        setTimeout(() => node.classList.remove('flash'), 900);
       }
     }
     renderStats();
+    renderChips();
   }
 
-  /* ---------- Рендер: проекты ---------- */
+  /* ---------- Рендер: досье ---------- */
+  function dosArtHtml(p) {
+    if (p.art) {
+      return `<span class="frame frame-sm dos-art" style="--art:url('assets/${p.art}')"><img src="assets/${p.art}" alt="" loading="lazy" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>`;
+    }
+    return `<span class="frame frame-sm dos-art"><span class="dos-letter">${escapeHtml((p.name || '?').trim().charAt(0).toUpperCase() || '?')}</span></span>`;
+  }
+
+  function dosInnerHtml(p, { pct = 0, preview = false } = {}) {
+    const due = conDue(p);
+    return `
+        ${dosArtHtml(p)}
+        <span class="dos-main">
+          <span class="dos-name">${escapeHtml(p.name || 'Имя персонажа')}</span>
+          <span class="dos-fandom">${escapeHtml(p.fandom || 'Ориджинал')} · ${pct}%</span>
+          ${due ? `<span class="dos-due ${due.cls}">${escapeHtml(due.text)}</span>` : ''}
+        </span>
+        ${preview ? '' : `<button type="button" class="icon-btn dos-edit" data-pact="edit" aria-label="Изменить досье «${escapeHtml(p.name)}»">${icon('edit')}</button>`}
+        <span class="dos-bar" aria-hidden="true"></span>`;
+  }
+
+  function dosHtml(p, { pct = 0, active = false } = {}) {
+    return `
+      <div class="dos${active ? ' is-active' : ''}" data-pid="${p.id}" tabindex="0" role="button" aria-pressed="${active}" style="--pc:${p.color};--p:${pct}%" title="${escapeHtml(p.name)}">${dosInnerHtml(p, { pct })}
+      </div>`;
+  }
+
   function renderProjects() {
     const track = el.projectsTrack;
-    const scroll = track.scrollLeft;
-    const posters = state.projects.map(p => {
+    const scroll = track.scrollTop;
+    const items = state.projects.map(p => {
       const tasks = state.tasks.filter(t => t.projectId === p.id);
-      const pct = Math.round(progressOf(tasks) * 100);
-      const planned = tasks.reduce((s, t) => s + taskPlanned(t), 0);
-      const spent = tasks.reduce((s, t) => s + taskSpent(t), 0);
-      const active = state.filter.project === p.id;
-      let con = '';
-      if (p.deadline != null || p.convention) {
-        const when = p.deadline != null ? relative(p.deadline) : '';
-        const soon = p.deadline != null && p.deadline - Date.now() < DAY * 7;
-        con = `<span class="poster-con${soon ? ' is-soon' : ''}">${icon('con')}<span>${escapeHtml([p.convention, when].filter(Boolean).join(' · '))}</span></span>`;
-      }
-      return `
-        <article class="poster glass${active ? ' is-active' : ''}${p.art ? ' has-art' : ''}" data-pid="${p.id}" style="--pc:${p.color}" tabindex="0" role="button" aria-pressed="${active}">
-          <span class="poster-panel">${p.art ? `<img src="assets/${p.art}" alt="" loading="lazy" decoding="async">` : ''}</span>
-          <span class="poster-letter" aria-hidden="true">${escapeHtml(p.name.trim().charAt(0).toUpperCase())}</span>
-          <span class="poster-flag">◆ фильтр</span>
-          <button type="button" class="poster-edit" data-pact="edit" aria-label="Редактировать персонажа">${icon('edit')}</button>
-          <span class="poster-fandom">${escapeHtml(p.fandom || 'Ориджинал')}</span>
-          <h3 class="poster-name">${escapeHtml(p.name)}</h3>
-          ${con}
-          <div class="poster-foot">
-            <svg class="mini-ring" viewBox="0 0 42 42" aria-hidden="true">
-              <circle class="mr-ink" cx="21" cy="21" r="16"/>
-              <circle class="mr-track" cx="21" cy="21" r="16"/>
-              <circle class="mr-bar" cx="21" cy="21" r="16" stroke-dasharray="${MINI_LEN}" stroke-dashoffset="${(MINI_LEN * (1 - pct / 100)).toFixed(2)}"/>
-            </svg>
-            <div class="poster-nums">
-              <b>${pct}%</b>
-              <span>${tasks.length} ${plural(tasks.length, ['задача', 'задачи', 'задач'])}${planned ? ` · ${money(spent)} / ${money(planned)} ₽` : ''}</span>
-            </div>
-          </div>
-        </article>`;
+      return dosHtml(p, { pct: Math.round(progressOf(tasks) * 100), active: state.filter.project === p.id });
     }).join('');
-
-    track.innerHTML = posters +
-      `<button type="button" class="poster poster-new glass" data-pact="new">
-         <span class="plus">${icon('plus')}</span><span>Новый персонаж</span>
-       </button>`;
-    track.scrollLeft = scroll;
-
-    if (!state.postersShown && !reducedMotion) {
-      $$('.poster', track).forEach((node, i) => node.animate([
-        { opacity: 0, transform: 'translateY(20px) rotate(2deg)', filter: 'blur(6px)' },
-        { opacity: 1, transform: 'none', filter: 'blur(0)' }
-      ], { duration: 620, delay: 250 + i * 70, easing: EASE, fill: 'backwards' }));
-    }
-    state.postersShown = true;
-    renderProjectChip();
+    const allActive = !state.filter.project;
+    const allItem = state.projects.length ? `
+      <div class="dos dos-all${allActive ? ' is-active' : ''}" data-pid="" tabindex="0" role="button" aria-pressed="${allActive}" title="Все персонажи">
+        <span class="dos-art">${icon('all')}</span>
+        <span class="dos-main"><span class="dos-name">Все персонажи</span><span class="dos-fandom">${state.projects.length} досье</span></span>
+      </div>` : '';
+    track.innerHTML = allItem + items +
+      `<button type="button" class="dos-new" data-pact="new">${icon('plus')}<span>Новое досье</span></button>`;
+    track.scrollTop = scroll;
+    renderChips();
   }
 
-  function renderProjectChip() {
+  function renderChips() {
     const p = state.space !== 'personal' && projectById(state.filter.project);
     el.projectChip.hidden = !p;
-    if (!p) return;
-    el.projectChip.style.setProperty('--tc', p.color);
-    el.projectChip.style.color = inkOn(p.color);
-    el.projectChip.innerHTML = `<span>Персонаж: ${escapeHtml(p.name)}</span>${icon('close')}`;
-    el.projectChip.title = 'Снять фильтр по проекту';
+    if (p) {
+      el.projectChip.style.setProperty('--pc', p.color);
+      el.projectChip.innerHTML = `<span class="pc"></span><span>${escapeHtml(p.name)}</span>${icon('close')}`;
+      el.projectChip.title = 'Снять фильтр по персонажу';
+    }
+    el.hotChip.hidden = !state.filter.hot;
+    if (state.filter.hot) {
+      el.hotChip.innerHTML = `<span>Только просроченные</span>${icon('close')}`;
+      el.hotChip.title = 'Показать все';
+    }
+    const f = state.filter;
+    el.filtersDot.hidden = !(f.priority !== 'all' || f.sort !== 'deadline' || (f.work !== 'all' && state.space !== 'personal'));
   }
 
-  /* ---------- Рендер: статистика ---------- */
-  function animateNumber(node, to, fmt = String) {
-    const from = Number(node.dataset.value || 0);
-    node.dataset.value = to;
-    if (from === to || reducedMotion) { node.textContent = fmt(to); return; }
-    const start = performance.now();
-    const step = now => {
-      const k = Math.min(1, (now - start) / 750);
-      const e = 1 - Math.pow(1 - k, 4);
-      node.textContent = fmt(Math.round(from + (to - from) * e));
-      if (k < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+  /* ---------- Рендер: сводка ---------- */
+  function nextConvention() {
+    const today = startOfDay(Date.now());
+    const pool = state.filter.project ? state.projects.filter(p => p.id === state.filter.project) : state.projects;
+    return pool.filter(p => p.deadline != null && p.deadline >= today).sort((a, b) => a.deadline - b.deadline)[0] || null;
   }
 
   function renderStats() {
     const scope = scopeTasks();
     const total = scope.length;
     const done = scope.filter(t => t.status === 'done').length;
-    const pct = total ? Math.round((done / total) * 100) : 0;
     const overdue = scope.filter(isOverdue).length;
-
-    animateNumber(el.ringPct, pct);
-    animateNumber(el.ringDone, done);
-    animateNumber(el.ringTotal, total);
-    el.ringBar.style.strokeDashoffset = String(RING_LEN * (1 - pct / 100));
-    animateNumber(el.statTotal, total);
-    animateNumber(el.statProgress, scope.filter(t => t.status === 'progress').length);
-    animateNumber(el.statOverdue, overdue);
+    el.ringDone.textContent = done;
+    el.ringTotal.textContent = total;
+    el.statProgress.textContent = scope.filter(t => t.status === 'progress').length;
+    el.statOverdue.textContent = overdue;
     el.overdueCard.classList.toggle('is-hot', overdue > 0);
+    el.overdueCard.classList.toggle('is-on', state.filter.hot);
+    $('[data-stat="progress"]', el.statline).classList.toggle('is-on', state.filter.status === 'progress');
 
     const ws = scope.filter(t => t.space === 'workshop');
     const planned = ws.reduce((s, t) => s + taskPlanned(t), 0);
     const spent = ws.reduce((s, t) => s + taskSpent(t), 0);
-    animateNumber(el.statSpent, spent, money);
+    el.statSpent.textContent = money(spent);
     el.statPlanned.textContent = money(planned);
-    el.budgetBar.style.width = (planned ? Math.min(100, (spent / planned) * 100) : 0) + '%';
 
-    const startOfToday = new Date().setHours(0, 0, 0, 0);
-    const pool = state.filter.project ? state.projects.filter(p => p.id === state.filter.project) : state.projects;
-    const next = pool.filter(p => p.deadline != null && p.deadline >= startOfToday).sort((a, b) => a.deadline - b.deadline)[0];
+    const next = nextConvention();
+    let conText = 'не запланирован';
     if (next) {
-      const days = Math.max(0, Math.ceil((new Date(next.deadline).setHours(0, 0, 0, 0) - startOfToday) / DAY));
-      el.conDays.textContent = days === 0 ? 'Сегодня' : `${days} ${plural(days, ['день', 'дня', 'дней'])}`;
-      el.conName.textContent = [next.convention, next.name].filter(Boolean).join(' · ');
-    } else {
-      el.conDays.textContent = '—';
-      el.conName.textContent = 'нет в планах';
+      const dd = dayDiff(next.deadline);
+      conText = dd <= 0 ? 'сегодня' : `через ${daysWord(dd)}`;
     }
+    el.conName.textContent = next ? (next.convention || next.name) : 'Конвент';
+    el.conDays.textContent = conText;
+
+    // сводка вверху вкладки «Досье» на телефоне
+    el.dossierSum.innerHTML = state.space === 'personal' ? '' :
+      `<span class="st"><span class="st-l">Бюджет</span><b class="st-v">${money(spent)} / ${money(planned)} ₽</b></span>` +
+      (next ? `<span class="st"><span class="st-l">${escapeHtml(next.convention || next.name)}</span><b class="st-v">${escapeHtml(conText)}</b></span>` : '') +
+      (overdue ? `<span class="st is-hot"><span class="st-l">Горит</span><b class="st-v">${overdue}</b></span>` : '');
   }
 
   function renderAll(opts) {
     renderProjects();
     render(opts);
+    renderPanelIfSafe();
   }
 
-  /* ---------- Сегменты с бегущей подложкой ---------- */
-  function moveInd(container) {
-    const ind = $('.seg-ind', container);
-    const active = $('.is-active', container);
-    if (!ind || !active || !active.offsetWidth) return;
-    ind.style.width = active.offsetWidth + 'px';
-    ind.style.transform = `translateX(${active.offsetLeft}px)`;
-  }
+  /* ---------- Сегменты ---------- */
   function setActive(container, btn) {
     $$('.seg-btn, .tab', container).forEach(b => {
-      b.classList.toggle('is-active', b === btn);
-      b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      const on = b === btn;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    moveInd(container);
   }
-  const moveAllInd = () => [el.spaceSwitch, el.statusFilter, el.tabs, el.authTabs].forEach(moveInd);
+
+  /* ---------- Меню: пространство, фильтры, статус, аккаунт ---------- */
+  let menuScrim = null;
+  const menuOwners = () => [[el.spaceMenu, el.spaceBtn], [el.filtersMenu, el.filtersBtn], [el.statusMenu, null], [el.userMenu, el.userBtn]];
+  const anyMenuOpen = () => menuOwners().some(([m]) => !m.hidden);
+
+  function openMenu(menu, btn) {
+    closeMenus(menu);
+    menu.hidden = false;
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (isPhone() && (menu === el.userMenu || menu === el.filtersMenu)) {
+      if (!menuScrim) {
+        menuScrim = document.createElement('div');
+        menuScrim.className = 'menu-scrim';
+        menuScrim.addEventListener('click', () => closeMenus());
+      }
+      document.body.appendChild(menuScrim);
+      document.body.classList.add('has-menu-scrim');
+    }
+  }
+  function closeMenus(except) {
+    menuOwners().forEach(([m, b]) => {
+      if (m === except || m.hidden) return;
+      m.hidden = true;
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
+    if (menuScrim && !(except && (except === el.userMenu || except === el.filtersMenu))) {
+      menuScrim.remove();
+      document.body.classList.remove('has-menu-scrim');
+    }
+  }
+  function toggleMenu(menu, btn) { menu.hidden ? openMenu(menu, btn) : closeMenus(); }
+
+  document.addEventListener('click', e => {
+    if (!anyMenuOpen()) return;
+    if (e.target.closest('.menu, #spaceBtn, #filtersBtn, #userBtn, [data-act="status"], .tab-item[data-tab="more"]')) return;
+    closeMenus();
+  });
+
+  // стрелки внутри меню
+  document.addEventListener('keydown', e => {
+    const menu = e.target.closest && e.target.closest('.menu');
+    if (!menu || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    const items = $$('.menu-item', menu).filter(i => !i.hidden && i.offsetParent !== null);
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === 'ArrowDown' ? items[(i + 1) % items.length] : items[(i - 1 + items.length) % items.length];
+    next.focus();
+  });
 
   /* ---------- Пространства ---------- */
   function setSpace(space) {
@@ -829,7 +879,12 @@
     try { localStorage.setItem(KEYS.space, space); } catch (e) { /* ignore */ }
     if (space === 'personal') state.filter.project = null;
     setActive(el.spaceSwitch, $(`.seg-btn[data-value="${space}"]`, el.spaceSwitch));
-    requestAnimationFrame(() => moveInd(el.statusFilter));
+    el.spaceLabel.textContent = SPACE_NAME[space];
+    $$('.menu-item', el.spaceMenu).forEach(b => b.setAttribute('aria-checked', String(b.dataset.value === space)));
+    if (panel.id) {
+      const t = state.tasks.find(x => x.id === panel.id);
+      if (t && !inSpace(t)) closePanel();
+    }
     renderAll();
   }
 
@@ -837,75 +892,486 @@
     const btn = e.target.closest('.seg-btn');
     if (btn && btn.dataset.value !== state.space) setSpace(btn.dataset.value);
   });
+  el.spaceBtn.addEventListener('click', () => toggleMenu(el.spaceMenu, el.spaceBtn));
+  el.spaceMenu.addEventListener('click', e => {
+    const b = e.target.closest('.menu-item');
+    if (!b) return;
+    closeMenus();
+    if (b.dataset.value !== state.space) setSpace(b.dataset.value);
+    el.spaceBtn.focus();
+  });
 
-  /* ---------- Фильтры ---------- */
-  el.workFilter.innerHTML = '<option value="all">Любая</option>' +
+  /* ---------- Фильтры и сводка ---------- */
+  el.workFilter.innerHTML = '<option value="all">Любой</option>' +
     Object.entries(WORK).map(([k, w]) => `<option value="${k}">${w.label}</option>`).join('');
 
+  function setStatusFilter(value) {
+    state.filter.status = value;
+    el.board.dataset.filter = value;
+    setActive(el.statusFilter, $(`.seg-btn[data-value="${value}"]`, el.statusFilter));
+    render();
+  }
   el.statusFilter.addEventListener('click', e => {
     const btn = e.target.closest('.seg-btn');
-    if (!btn || btn.classList.contains('is-active')) return;
-    setActive(el.statusFilter, btn);
-    state.filter.status = btn.dataset.value;
-    el.board.dataset.filter = btn.dataset.value;
-    render({ animate: false });
-    if (!reducedMotion) {
-      $$('.task', el.board).forEach((node, i) => node.animate(
-        [{ opacity: 0, transform: 'translateY(14px)', filter: 'blur(5px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
-        { duration: 520, delay: Math.min(i, 12) * 40, easing: EASE, fill: 'backwards' }
-      ));
+    if (btn && !btn.classList.contains('is-active')) setStatusFilter(btn.dataset.value);
+  });
+
+  el.statline.addEventListener('click', e => {
+    const st = e.target.closest('button.st');
+    if (!st) return;
+    if (st.dataset.stat === 'progress') setStatusFilter(state.filter.status === 'progress' ? 'active' : 'progress');
+    if (st.dataset.stat === 'overdue') {
+      state.filter.hot = !state.filter.hot;
+      if (state.filter.hot && state.filter.status === 'done') setStatusFilter('active');
+      else render();
     }
   });
 
+  function resetFilters() {
+    Object.assign(state.filter, { query: '', priority: 'all', work: 'all', hot: false });
+    el.search.value = '';
+    el.priorityFilter.value = 'all';
+    el.workFilter.value = 'all';
+    render();
+  }
+
+  el.filtersBtn.addEventListener('click', () => toggleMenu(el.filtersMenu, el.filtersBtn));
   el.workFilter.addEventListener('change', () => { state.filter.work = el.workFilter.value; render(); });
   el.priorityFilter.addEventListener('change', () => { state.filter.priority = el.priorityFilter.value; render(); });
   el.sortSelect.addEventListener('change', () => { state.filter.sort = el.sortSelect.value; render(); });
   el.projectChip.addEventListener('click', () => { state.filter.project = null; renderAll(); });
+  el.hotChip.addEventListener('click', () => { state.filter.hot = false; render(); });
 
   let searchTimer = 0;
   el.search.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => { state.filter.query = el.search.value; render(); }, 120);
   });
+  el.searchOpen.addEventListener('click', () => {
+    el.hud.classList.add('search-open');
+    setTimeout(() => el.search.focus(), 30);
+  });
+  el.searchCancel.addEventListener('click', e => {
+    e.preventDefault();
+    el.hud.classList.remove('search-open');
+    if (el.search.value) { el.search.value = ''; state.filter.query = ''; render(); }
+  });
 
-  window.addEventListener('resize', moveAllInd);
-
-  /* ---------- Полоса проектов ---------- */
+  /* ---------- Досье: клики ---------- */
   function toggleProjectFilter(id) {
-    state.filter.project = state.filter.project === id ? null : id;
+    state.filter.project = id && state.filter.project !== id ? id : null;
+    if (isPhone()) setView('list');
     renderAll();
   }
 
   el.projectsTrack.addEventListener('click', e => {
     const act = e.target.closest('[data-pact]');
     if (act && act.dataset.pact === 'new') { openProjectModal(null); return; }
-    const poster = e.target.closest('.poster[data-pid]');
-    if (!poster) return;
-    if (act && act.dataset.pact === 'edit') { openProjectModal(projectById(poster.dataset.pid)); return; }
-    toggleProjectFilter(poster.dataset.pid);
+    const item = e.target.closest('.dos[data-pid]');
+    if (!item) return;
+    if (act && act.dataset.pact === 'edit') { openProjectModal(projectById(item.dataset.pid)); return; }
+    toggleProjectFilter(item.dataset.pid || null);
   });
   el.projectsTrack.addEventListener('keydown', e => {
-    const poster = e.target.closest('.poster[data-pid]');
-    if (!poster || e.target !== poster) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleProjectFilter(poster.dataset.pid); }
+    const item = e.target.closest('.dos[data-pid]');
+    if (!item || e.target !== item) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleProjectFilter(item.dataset.pid || null); }
   });
   el.addProjectBtn.addEventListener('click', () => openProjectModal(null));
 
+  /* =========================================================
+     Панель контракта: просмотр и правка с автосохранением.
+     Пока поле в фокусе, синхронизация не перерисовывает панель;
+     сохраняются только изменённые поля.
+     ========================================================= */
+  const panel = { id: null, shownAt: 0, timer: 0, stale: false, pushed: false, draft: null, dirty: new Set() };
+  const panelTask = () => (panel.id ? state.tasks.find(t => t.id === panel.id) || null : null);
+  const panelFocused = () => !!panel.id && el.panel.contains(document.activeElement) && !!document.activeElement.matches('input, textarea, select');
+
+  function autoGrow(ta) {
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  }
+
+  function setSaveState(kind) {
+    const s = $('#panelSave', el.panel);
+    if (!s) return;
+    s.classList.toggle('is-saving', kind === 'saving');
+    s.textContent = kind === 'saving' ? 'Сохраняю…' : 'Сохранено ✓';
+  }
+
+  function panelSubsHtml() {
+    const list = panel.draft.subtasks;
+    return list.length ? list.map(s => `
+      <li data-rid="${s.id}" class="${s.done ? 'is-done' : ''}">
+        <input type="checkbox" class="dcheck" aria-label="Этап выполнен" ${s.done ? 'checked' : ''}>
+        <input type="text" value="${escapeHtml(s.text)}" maxlength="120" aria-label="Название этапа">
+        <button type="button" class="row-del" aria-label="Удалить этап">${icon('trash')}</button>
+      </li>`).join('') : '<li class="editor-empty">Этапов пока нет</li>';
+  }
+
+  function panelMatsHtml() {
+    const list = panel.draft.materials;
+    return list.length ? list.map(m => `
+      <li data-rid="${m.id}" class="${m.bought ? 'is-bought' : ''}">
+        <input type="text" data-f="name" value="${escapeHtml(m.name)}" maxlength="80" placeholder="Например, EVA 5 мм" aria-label="Материал">
+        <input type="number" data-f="qty" value="${m.qty}" min="0" step="1" inputmode="decimal" aria-label="Количество">
+        <input type="number" data-f="price" value="${m.price}" min="0" step="10" inputmode="decimal" aria-label="Цена за единицу, ₽">
+        <input type="checkbox" class="dcheck" data-f="bought" aria-label="Куплено" ${m.bought ? 'checked' : ''}>
+        <button type="button" class="row-del" aria-label="Удалить материал">${icon('trash')}</button>
+      </li>`).join('') : '<li class="editor-empty">Список закупок пуст</li>';
+  }
+
+  function updatePanelCounts() {
+    const subs = panel.draft.subtasks;
+    const c = $('[data-sub-count]', el.panel);
+    if (c) c.textContent = subs.length ? `${subs.filter(s => s.done).length}/${subs.length}` : '';
+    const mc = $('[data-mat-count]', el.panel);
+    if (mc) {
+      const ms = panel.draft.materials;
+      mc.textContent = ms.length || '';
+      $('[data-mat-total]', el.panel).textContent = money(ms.reduce((s, m) => s + m.qty * m.price, 0)) + ' ₽';
+      $('[data-mat-spent]', el.panel).textContent = 'куплено на ' + money(ms.reduce((s, m) => s + (m.bought ? m.qty * m.price : 0), 0)) + ' ₽';
+    }
+  }
+
+  function renderPanelLists() {
+    const subs = $('[data-list="subs"]', el.panel);
+    if (subs) subs.innerHTML = panelSubsHtml();
+    const mats = $('[data-list="mats"]', el.panel);
+    if (mats) mats.innerHTML = panelMatsHtml();
+    updatePanelCounts();
+  }
+
+  function renderPanel(task) {
+    const same = el.panel.dataset.id === task.id;
+    const oldBody = $('.panel-body', el.panel);
+    const scroll = same && oldBody ? oldBody.scrollTop : 0;
+    const proj = projectById(task.projectId);
+    const ws = task.space === 'workshop';
+    panel.draft = {
+      subtasks: task.subtasks.map(s => Object.assign({}, s)),
+      materials: task.materials.map(m => Object.assign({}, m))
+    };
+    panel.dirty.clear();
+    el.panel.dataset.id = task.id;
+    const prio = ['critical', 'high', 'medium', 'low'].map(v =>
+      `<label class="seg-opt" data-p="${v}"><input type="radio" name="pfPrio" value="${v}" data-f="priority" ${task.priority === v ? 'checked' : ''}><span><b>${PRIORITY[v].code}</b></span></label>`).join('');
+
+    el.panel.innerHTML = `
+      <header class="panel-head">
+        <button type="button" class="icon-btn back" data-pact="close" aria-label="Назад к списку">${icon('back')}</button>
+        <span class="mono-label">Контракт</span>
+        <span class="save-state" id="panelSave" aria-live="polite">Сохранено ✓</span>
+        <button type="button" class="icon-btn close-x" data-pact="close" aria-label="Закрыть панель (Esc)" title="Закрыть (Esc)">${icon('close')}</button>
+      </header>
+      <div class="panel-body" tabindex="-1">
+        ${proj && proj.art ? `<span class="frame panel-art" style="--art:url('assets/${proj.art}')"><img src="assets/${proj.art}" alt="${escapeHtml(proj.name)} — арт" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
+        <textarea class="panel-title" data-f="title" rows="1" maxlength="120" aria-label="Название контракта">${escapeHtml(task.title)}</textarea>
+        <div class="seg seg-full seg-form" role="radiogroup" aria-label="Статус">
+          ${STATUSES.map(s => `<label class="seg-opt"><input type="radio" name="pfStatus" value="${s}" data-f="status" ${task.status === s ? 'checked' : ''}><span>${STATUS_LABEL[s]}</span></label>`).join('')}
+        </div>
+        <dl class="kv">
+          <dt>Пространство</dt>
+          <dd><div class="seg seg-form" role="radiogroup" aria-label="Пространство">${['workshop', 'personal'].map(v =>
+            `<label class="seg-opt"><input type="radio" name="pfSpace" value="${v}" data-f="space" ${task.space === v ? 'checked' : ''}><span>${SPACE_NAME[v]}</span></label>`).join('')}</div></dd>
+          ${ws ? `
+          <dt><label for="pfProject">Персонаж</label></dt>
+          <dd><select class="select" id="pfProject" data-f="projectId">${projectOptions(task.projectId)}</select></dd>
+          <dt><label for="pfWork">Тип работы</label></dt>
+          <dd><select class="select" id="pfWork" data-f="workType">${workOptions(task.workType)}</select></dd>` : ''}
+          <dt><label for="pfDeadline">Срок</label></dt>
+          <dd><input class="input" type="datetime-local" id="pfDeadline" data-f="deadline" value="${toLocalInput(task.deadline)}"><small class="field-hint mono" data-due-out>${fmtStamp(task.deadline)}</small></dd>
+          <dt>Приоритет</dt>
+          <dd><div class="seg seg-form seg-prio" role="radiogroup" aria-label="Приоритет">${prio}</div></dd>
+        </dl>
+        <section class="p-section">
+          <h4><label for="pfDesc">Описание</label></h4>
+          <textarea class="input" id="pfDesc" data-f="description" rows="3" maxlength="600" placeholder="Детали, референсы, заметки…">${escapeHtml(task.description)}</textarea>
+        </section>
+        <section class="p-section">
+          <h4>Этапы <i class="cnt" data-sub-count></i></h4>
+          <ul class="editor-list" data-list="subs"></ul>
+          <div class="add-row">
+            <input class="input" type="text" maxlength="120" data-new="sub" placeholder="Новый этап, Enter — добавить" aria-label="Новый этап" enterkeyhint="enter">
+            <button type="button" class="btn btn-ghost btn-sm" data-pact="add-sub">${icon('plus')}<span>Этап</span></button>
+          </div>
+        </section>
+        ${ws ? `
+        <section class="p-section">
+          <h4>Материалы <i class="cnt" data-mat-count></i></h4>
+          <ul class="editor-list mat-list" data-list="mats"></ul>
+          <div class="add-row"><button type="button" class="btn btn-ghost btn-sm" data-pact="add-mat">${icon('plus')}<span>Материал</span></button></div>
+          <div class="mat-total-row"><span>Итого</span><span><b data-mat-total></b> <small data-mat-spent></small></span></div>
+        </section>` : ''}
+        <footer class="panel-foot">
+          ${task.status === 'done'
+            ? `<button type="button" class="btn btn-ghost" data-pact="reopen">${icon('undo')}<span>Вернуть в работу</span></button>`
+            : `<button type="button" class="btn btn-primary" data-pact="complete">${icon('check')}<span>Закрыть контракт</span></button>`}
+          <button type="button" class="btn btn-danger-ghost" data-pact="delete">${icon('trash')}<span>Удалить</span></button>
+        </footer>
+        <p class="panel-meta">Создан ${escapeHtml(absFmt.format(task.createdAt))}${task.updatedAt - task.createdAt > 1000 ? ' · изменён ' + escapeHtml(relative(task.updatedAt)) : ''}</p>
+      </div>`;
+    renderPanelLists();
+    autoGrow($('.panel-title', el.panel));
+    panel.shownAt = task.updatedAt;
+    panel.stale = false;
+    const body = $('.panel-body', el.panel);
+    if (body) body.scrollTop = scroll;
+  }
+
+  function openPanel(task, { focusTitle = false } = {}) {
+    if (!task) return;
+    flushPanel();
+    const wasOpen = !!panel.id;
+    panel.id = task.id;
+    state.selectedId = task.id;
+    el.panel.hidden = false;
+    el.panelScrim.hidden = false;
+    el.layout.classList.add('has-panel');
+    renderPanel(task);
+    $$('.task.is-selected', el.board).forEach(n => n.classList.remove('is-selected'));
+    const row = $(`.task[data-id="${task.id}"]`, el.board);
+    if (row) row.classList.add('is-selected');
+    if (!wasOpen) {
+      el.panel.classList.remove('is-entering');
+      void el.panel.offsetWidth;
+      el.panel.classList.add('is-entering');
+    }
+    const art = $('.panel-art', el.panel);
+    if (art && !reducedMotion) { art.classList.add('is-scanning'); setTimeout(() => art.classList.remove('is-scanning'), 700); }
+    if (isPhone() && !panel.pushed) {
+      try { history.pushState({ efPanel: task.id }, ''); panel.pushed = true; } catch (e) { /* ignore */ }
+    }
+    if (focusTitle) setTimeout(() => { const t = $('.panel-title', el.panel); if (t) t.focus(); }, 40);
+    else if (isPhone() || !wasOpen) setTimeout(() => { const b = $('.panel-body', el.panel); if (b && document.activeElement && !el.panel.contains(document.activeElement)) b.focus({ preventScroll: true }); }, 40);
+  }
+
+  function closePanel({ fromHistory = false, restoreFocus = true } = {}) {
+    if (!panel.id) return;
+    flushPanel();
+    const id = panel.id;
+    panel.id = null;
+    state.selectedId = null;
+    el.panel.hidden = true;
+    el.panel.innerHTML = '';
+    delete el.panel.dataset.id;
+    el.panelScrim.hidden = true;
+    el.layout.classList.remove('has-panel');
+    $$('.task.is-selected', el.board).forEach(n => n.classList.remove('is-selected'));
+    if (panel.pushed) {
+      panel.pushed = false;
+      if (!fromHistory) { try { history.back(); } catch (e) { /* ignore */ } }
+    }
+    if (restoreFocus) {
+      const row = $(`.task[data-id="${id}"]`, el.board);
+      if (row) row.focus({ preventScroll: isPhone() });
+    }
+  }
+  window.addEventListener('popstate', () => { if (panel.id && panel.pushed) closePanel({ fromHistory: true }); });
+  el.panelScrim.addEventListener('click', () => closePanel());
+
+  // собрать только изменённые поля
+  function collectPanel() {
+    const t = panelTask();
+    if (!t) return null;
+    const f = n => $(`[data-f="${n}"]`, el.panel);
+    const checked = n => { const x = $(`[data-f="${n}"]:checked`, el.panel); return x ? x.value : null; };
+    const space = checked('space') || t.space;
+    const ws = space === 'workshop';
+    const all = {
+      title: (f('title').value.trim() || t.title).slice(0, 120),
+      description: f('description').value.trim(),
+      space,
+      projectId: ws ? (f('projectId') ? f('projectId').value || null : t.projectId) : null,
+      workType: ws ? (f('workType') ? f('workType').value || null : t.workType) : null,
+      deadline: fromInput(f('deadline').value),
+      priority: checked('priority') || t.priority,
+      subtasks: panel.draft.subtasks.filter(s => s.text.trim()).map(s => ({ id: s.id, text: s.text.trim(), done: !!s.done })),
+      materials: ws ? panel.draft.materials.filter(m => m.name.trim()).map(m => Object.assign({}, m, { name: m.name.trim() })) : []
+    };
+    const patch = {};
+    panel.dirty.forEach(k => { if (k in all) patch[k] = all[k]; });
+    if (patch.space === 'personal') { patch.projectId = null; patch.workType = null; patch.materials = []; }
+    return patch;
+  }
+
+  function commitPanel() {
+    clearTimeout(panel.timer);
+    panel.timer = 0;
+    const t = panelTask();
+    if (!t) return;
+    const patch = collectPanel();
+    panel.dirty.clear();
+    const changed = patch && Object.keys(patch).some(k => JSON.stringify(t[k]) !== JSON.stringify(patch[k]));
+    if (changed) {
+      updateTask(t.id, patch);
+      panel.shownAt = t.updatedAt;
+      renderProjects();
+      render();
+    }
+    setSaveState('saved');
+  }
+  function schedulePanelSave(field) {
+    if (field) panel.dirty.add(field);
+    setSaveState('saving');
+    clearTimeout(panel.timer);
+    panel.timer = setTimeout(commitPanel, 600);
+  }
+  function flushPanel() { if (panel.timer) commitPanel(); }
+
+  // перерисовать панель, если задачу изменили не здесь (синхронизация, AI-план, список)
+  function renderPanelIfSafe() {
+    if (!panel.id) return;
+    const t = panelTask();
+    if (!t) { closePanel({ restoreFocus: false }); return; }
+    if (t.updatedAt === panel.shownAt) return;
+    if (panelFocused() || panel.timer) { panel.stale = true; return; }
+    renderPanel(t);
+  }
+
+  el.panel.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!panel.stale || panelFocused()) return;
+      panel.stale = false;
+      toast('Задача изменена на другом устройстве', {
+        action: 'Обновить',
+        onAction: () => { const t = panelTask(); if (t) renderPanel(t); }
+      });
+    }, 0);
+  });
+
+  el.panel.addEventListener('input', e => {
+    const tgt = e.target;
+    const f = tgt.dataset.f;
+    if (tgt.classList.contains('panel-title')) autoGrow(tgt);
+    const li = tgt.closest('li[data-rid]');
+    if (li) {
+      const isMat = !!tgt.closest('[data-list="mats"]');
+      const list = isMat ? panel.draft.materials : panel.draft.subtasks;
+      const item = list.find(x => x.id === li.dataset.rid);
+      if (!item || tgt.type === 'checkbox') return;
+      if (f === 'qty' || f === 'price') item[f] = num(tgt.value, 0);
+      else if (f === 'name') item.name = tgt.value;
+      else item.text = tgt.value;
+      updatePanelCounts();
+      schedulePanelSave(isMat ? 'materials' : 'subtasks');
+      return;
+    }
+    if (f === 'title' || f === 'description') schedulePanelSave(f);
+    if (f === 'deadline') { const o = $('[data-due-out]', el.panel); if (o) o.textContent = fmtStamp(fromInput(tgt.value)); }
+  });
+
+  el.panel.addEventListener('change', e => {
+    const tgt = e.target;
+    const f = tgt.dataset.f;
+    const t = panelTask();
+    if (!t) return;
+    const li = tgt.closest('li[data-rid]');
+    if (li && tgt.type === 'checkbox') {
+      const isMat = !!tgt.closest('[data-list="mats"]');
+      const list = isMat ? panel.draft.materials : panel.draft.subtasks;
+      const item = list.find(x => x.id === li.dataset.rid);
+      if (!item) return;
+      if (isMat) item.bought = tgt.checked; else item.done = tgt.checked;
+      li.classList.toggle(isMat ? 'is-bought' : 'is-done', tgt.checked);
+      panel.dirty.add(isMat ? 'materials' : 'subtasks');
+      commitPanel();
+      updatePanelCounts();
+      if (!isMat && tgt.checked && t.status !== 'done' && panel.draft.subtasks.length && panel.draft.subtasks.every(s => s.done)) {
+        toast('Все этапы закрыты', {
+          type: 'success', action: 'Закрыть контракт',
+          onAction: () => { const x = panelTask() || state.tasks.find(y => y.id === t.id); if (x) completeTask(x, $(`.task[data-id="${x.id}"]`, el.board)); }
+        });
+      }
+      return;
+    }
+    if (f === 'status') {
+      flushPanel();
+      setTaskStatus(t, tgt.value, $(`.task[data-id="${t.id}"]`, el.board));
+      return;
+    }
+    if (f === 'space' || f === 'projectId' || f === 'workType' || f === 'deadline' || f === 'priority') {
+      panel.dirty.add(f);
+      commitPanel();
+      if (f === 'space' || f === 'projectId') {
+        const fresh = panelTask();
+        if (fresh) {
+          renderPanel(fresh);
+          const again = $(`[data-f="${f}"]${f === 'space' ? ':checked' : ''}`, el.panel);
+          if (again) again.focus();
+        }
+        if (fresh && !inSpace(fresh)) setSpace('all');
+      }
+    }
+  });
+
+  el.panel.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.matches('[data-new="sub"]')) { e.preventDefault(); panelAddSub(); return; }
+    if (e.key === 'Enter' && e.target.classList.contains('panel-title')) { e.preventDefault(); e.target.blur(); return; }
+    if (e.key === 'Enter' && e.target.matches('li input')) e.preventDefault();
+  });
+
+  function panelAddSub() {
+    const input = $('[data-new="sub"]', el.panel);
+    const text = input.value.trim();
+    if (!text) { input.focus(); return; }
+    panel.draft.subtasks.push({ id: uid(), text, done: false });
+    input.value = '';
+    renderPanelLists();
+    panel.dirty.add('subtasks');
+    commitPanel();
+    input.focus();
+  }
+
+  el.panel.addEventListener('click', e => {
+    const del = e.target.closest('.row-del');
+    if (del) {
+      const li = del.closest('li[data-rid]');
+      const isMat = !!del.closest('[data-list="mats"]');
+      const list = isMat ? panel.draft.materials : panel.draft.subtasks;
+      const i = list.findIndex(x => x.id === li.dataset.rid);
+      if (i > -1) list.splice(i, 1);
+      renderPanelLists();
+      panel.dirty.add(isMat ? 'materials' : 'subtasks');
+      commitPanel();
+      return;
+    }
+    const act = e.target.closest('[data-pact]');
+    if (!act) return;
+    const t = panelTask();
+    const a = act.dataset.pact;
+    if (a === 'close') { closePanel(); return; }
+    if (!t) return;
+    if (a === 'add-sub') panelAddSub();
+    else if (a === 'add-mat') {
+      const m = { id: uid(), name: '', qty: 1, price: 0, bought: false };
+      panel.draft.materials.push(m);
+      renderPanelLists();
+      const inp = $(`li[data-rid="${m.id}"] input[data-f="name"]`, el.panel);
+      if (inp) inp.focus();
+    } else if (a === 'complete') { flushPanel(); completeTask(t, $(`.task[data-id="${t.id}"]`, el.board)); }
+    else if (a === 'reopen') { flushPanel(); setTaskStatus(t, 'todo'); }
+    else if (a === 'delete') { flushPanel(); askDeleteTask(t); }
+  });
+
   /* ---------- Оверлеи ---------- */
-  const overlays = [el.confirmOverlay, el.keyOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
+  const overlays = [el.confirmOverlay, el.keyOverlay, el.keysOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
 
   function openOverlay(overlay, focusEl) {
+    closeMenus();
     state.lastFocus.push(document.activeElement);
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
-    setTimeout(() => focusEl && focusEl.focus(), 80);
+    setTimeout(() => focusEl && focusEl.focus(), 60);
   }
   function closeOverlay(overlay) {
     if (!overlay.classList.contains('open')) return;
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
     const f = state.lastFocus.pop();
-    if (f && document.contains(f) && f.focus) f.focus();
+    if (f && document.contains(f) && f.focus) f.focus({ preventScroll: true });
   }
   const anyOpen = () => overlays.some(o => o.classList.contains('open'));
 
@@ -920,7 +1386,7 @@
     el.confirmTitle.textContent = title;
     el.confirmText.innerHTML = html;
     $('span', el.confirmBtn).textContent = button;
-    openOverlay(el.confirmOverlay, el.confirmBtn);
+    openOverlay(el.confirmOverlay, el.confirmCancel);
   }
   el.confirmBtn.addEventListener('click', () => {
     const cb = state.confirmCb;
@@ -938,29 +1404,17 @@
   }
   [() => el.fTitle, () => el.pName].forEach(get => get().addEventListener('input', e => e.target.closest('.field').classList.remove('invalid')));
 
-  /* ---------- Модалка задачи ---------- */
+  /* ---------- Окно нового контракта ---------- */
   const formSpace = () => (new FormData(el.taskForm).get('space') || 'workshop');
-
-  function switchTab(name) {
-    $$('.tab', el.tabs).forEach(t => t.classList.toggle('is-active', t.dataset.tab === name));
-    $$('.tab-panel', el.taskForm).forEach(p => p.classList.toggle('is-active', p.dataset.panel === name));
-    moveInd(el.tabs);
-  }
-
-  function applyFormSpace() {
-    const space = formSpace();
-    el.taskForm.dataset.space = space;
-    if (space === 'personal' && $('.tab.is-active', el.tabs).dataset.tab === 'mats') switchTab('main');
-    requestAnimationFrame(() => moveInd(el.tabs));
-  }
+  const applyFormSpace = () => { el.taskForm.dataset.space = formSpace(); };
 
   function fillTaskSelects(task) {
-    el.fProject.innerHTML = '<option value="">Без проекта</option>' +
-      state.projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-    el.fWork.innerHTML = '<option value="">Не указан</option>' +
-      Object.entries(WORK).map(([k, w]) => `<option value="${k}">${w.label}</option>`).join('');
-    el.fProject.value = task ? (task.projectId || '') : (state.filter.project || '');
-    el.fWork.value = task ? (task.workType || '') : (state.filter.work !== 'all' ? state.filter.work : '');
+    el.fProject.innerHTML = projectOptions(task ? task.projectId : state.filter.project);
+    el.fWork.innerHTML = workOptions(task ? task.workType : (state.filter.work !== 'all' ? state.filter.work : null));
+  }
+
+  function showDeadlineOut() {
+    el.fDeadlineOut.textContent = el.fDeadline.value ? fmtStamp(fromInput(el.fDeadline.value)) : '';
   }
 
   function openTaskModal(task) {
@@ -971,41 +1425,41 @@
     };
     el.taskForm.reset();
     $$('.field.invalid', el.taskForm).forEach(f => f.classList.remove('invalid'));
-    el.modalTitle.textContent = task ? 'Перековать задачу' : 'Новая задача';
-    $('span', el.submitBtn).textContent = task ? 'Сохранить' : 'Выковать';
+    el.modalTitle.textContent = task ? 'Контракт' : 'Новый контракт';
+    $$('button[type="submit"] span', el.taskForm).forEach(s => { s.textContent = task ? 'Сохранить' : 'Создать'; });
 
     const space = task ? task.space : (state.space === 'personal' ? 'personal' : 'workshop');
     $(`input[name="space"][value="${space}"]`, el.taskForm).checked = true;
     el.fTitle.value = task ? task.title : '';
     el.fDesc.value = task ? task.description : '';
-    el.fStatus.value = task ? task.status : (state.filter.status !== 'all' ? state.filter.status : 'todo');
+    el.fStatus.value = task ? task.status : (state.filter.status === 'progress' ? 'progress' : 'todo');
     el.fDeadline.value = task ? toLocalInput(task.deadline) : '';
+    showDeadlineOut();
     $(`input[name="priority"][value="${task ? task.priority : 'medium'}"]`, el.taskForm).checked = true;
     fillTaskSelects(task);
+    $('#foldDesc').open = !!(task && task.description);
+    $('#foldSubs').open = !!(task && task.subtasks.length);
+    $('#foldMats').open = !!(task && task.materials.length);
 
     renderSubEditor();
     renderMatEditor();
     el.taskForm.dataset.space = space;
-    switchTab('main');
     openOverlay(el.taskOverlay, el.fTitle);
   }
 
   $('#fSpace').addEventListener('change', applyFormSpace);
-  el.tabs.addEventListener('click', e => {
-    const tab = e.target.closest('.tab');
-    if (tab) switchTab(tab.dataset.tab);
-  });
+  el.fDeadline.addEventListener('input', showDeadlineOut);
 
   // --- этапы
   function renderSubEditor() {
     const list = state.draft.subtasks;
     el.subEditor.innerHTML = list.length ? list.map(s => `
-      <li data-rid="${s.id}">
+      <li data-rid="${s.id}" class="${s.done ? 'is-done' : ''}">
         <input type="checkbox" class="dcheck" aria-label="Этап выполнен" ${s.done ? 'checked' : ''}>
         <input type="text" value="${escapeHtml(s.text)}" maxlength="120" aria-label="Название этапа">
         <button type="button" class="row-del" aria-label="Удалить этап">${icon('trash')}</button>
-      </li>`).join('') : '<li class="editor-empty">Этапов пока нет</li>';
-    el.subsCount.textContent = list.length;
+      </li>`).join('') : '';
+    el.subsCount.textContent = list.length || '';
   }
 
   function addSub() {
@@ -1023,14 +1477,14 @@
   function renderMatEditor(focusId) {
     const list = state.draft.materials;
     el.matEditor.innerHTML = list.length ? list.map(m => `
-      <li data-rid="${m.id}">
+      <li data-rid="${m.id}" class="${m.bought ? 'is-bought' : ''}">
         <input type="text" data-f="name" value="${escapeHtml(m.name)}" maxlength="80" placeholder="Например, EVA 5 мм" aria-label="Материал">
-        <input type="number" data-f="qty" value="${m.qty}" min="0" step="1" aria-label="Количество">
-        <input type="number" data-f="price" value="${m.price}" min="0" step="10" aria-label="Цена за единицу">
+        <input type="number" data-f="qty" value="${m.qty}" min="0" step="1" inputmode="decimal" aria-label="Количество">
+        <input type="number" data-f="price" value="${m.price}" min="0" step="10" inputmode="decimal" aria-label="Цена за единицу, ₽">
         <input type="checkbox" class="dcheck" data-f="bought" aria-label="Куплено" ${m.bought ? 'checked' : ''}>
         <button type="button" class="row-del" aria-label="Удалить материал">${icon('trash')}</button>
       </li>`).join('') : '<li class="editor-empty">Список закупок пуст</li>';
-    el.matsCount.textContent = list.length;
+    el.matsCount.textContent = list.length || '';
     updateMatTotals();
     if (focusId) {
       const input = $(`li[data-rid="${focusId}"] input[data-f="name"]`, el.matEditor);
@@ -1050,52 +1504,47 @@
     renderMatEditor(m.id);
   });
 
-  // общий обработчик для обоих редакторов
-  function bindEditor(listEl, getList, onChange) {
+  // общий обработчик для обоих редакторов окна
+  function bindEditor(listEl, getList, onChange, rerender) {
     const rowOf = e => {
       const li = e.target.closest('li[data-rid]');
       return li ? { li, item: getList().find(x => x.id === li.dataset.rid) } : {};
     };
     listEl.addEventListener('input', e => {
       const { item } = rowOf(e);
-      if (!item) return;
+      if (!item || e.target.type === 'checkbox') return;
       const f = e.target.dataset.f;
-      if (e.target.type === 'checkbox') return;
       if (f === 'qty' || f === 'price') item[f] = num(e.target.value, 0);
       else if (f === 'name') item.name = e.target.value;
       else item.text = e.target.value;
       onChange();
     });
     listEl.addEventListener('change', e => {
-      const { item } = rowOf(e);
+      const { li, item } = rowOf(e);
       if (!item || e.target.type !== 'checkbox') return;
-      if ('bought' in item) item.bought = e.target.checked; else item.done = e.target.checked;
+      if ('bought' in item) { item.bought = e.target.checked; li.classList.toggle('is-bought', item.bought); }
+      else { item.done = e.target.checked; li.classList.toggle('is-done', item.done); }
       onChange();
     });
     listEl.addEventListener('click', e => {
       if (!e.target.closest('.row-del')) return;
-      const { li, item } = rowOf(e);
+      const { item } = rowOf(e);
       if (!item) return;
-      const remove = () => {
-        const list = getList();
-        list.splice(list.indexOf(item), 1);
-        listEl === el.subEditor ? renderSubEditor() : renderMatEditor();
-      };
-      if (reducedMotion) { remove(); return; }
-      li.classList.add('out');
-      li.addEventListener('animationend', remove, { once: true });
+      const list = getList();
+      list.splice(list.indexOf(item), 1);
+      rerender();
     });
     listEl.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target.matches('input')) e.preventDefault();
     });
   }
-  bindEditor(el.subEditor, () => state.draft.subtasks, () => {});
-  bindEditor(el.matEditor, () => state.draft.materials, updateMatTotals);
+  bindEditor(el.subEditor, () => state.draft.subtasks, () => {}, renderSubEditor);
+  bindEditor(el.matEditor, () => state.draft.materials, updateMatTotals, () => renderMatEditor());
 
   el.taskForm.addEventListener('submit', e => {
     e.preventDefault();
     const title = el.fTitle.value.trim();
-    if (!title) { switchTab('main'); setTimeout(() => invalid(el.fTitle), 60); return; }
+    if (!title) { setTimeout(() => invalid(el.fTitle), 30); return; }
     const space = formSpace();
     const ws = space === 'workshop';
     const data = {
@@ -1111,33 +1560,55 @@
       materials: ws ? state.draft.materials.filter(m => m.name.trim()).map(m => Object.assign({}, m, { name: m.name.trim() })) : []
     };
     let task;
-    let cheer = null;
+    let after = null;
     if (state.editingId) {
       const prev = state.tasks.find(t => t.id === state.editingId);
       const becameDone = prev && prev.status !== 'done' && data.status === 'done';
       const projectWasDone = data.projectId ? projectDone(data.projectId) : false;
       task = updateTask(state.editingId, data);
-      if (becameDone && task) cheer = () => celebrate(task, projectWasDone);
-      else toast('Задача перекована', { type: 'success' });
+      if (becameDone && task) after = () => celebrate(task, projectWasDone);
+      else toast('Контракт обновлён', { type: 'success' });
     } else {
       task = createTask(data);
-      toast('Задача выкована', { type: 'success' });
+      toast('Контракт принят', { type: 'success' });
     }
-    // если задача не попадает в текущий вид — переключаемся, чтобы её было видно
+    // если контракт не попадает в текущий вид — показываем его
     if (task && !inSpace(task)) setSpace('all');
     if (task && state.filter.project && task.projectId !== state.filter.project) state.filter.project = null;
+    if (task && !statusMatch(task, state.filter.status)) setStatusFilter(task.status === 'done' ? 'done' : 'active');
     closeOverlay(el.taskOverlay);
+    if (isPhone()) setView('list');
     renderAll({ flashId: task && task.id });
-    if (cheer) setTimeout(cheer, 380);
+    if (after) setTimeout(after, 200);
   });
 
-  /* ---------- Модалка проекта ---------- */
+  /* ---------- Окно досье (персонажа) ---------- */
+  function projectFormData() {
+    const fd = new FormData(el.projectForm);
+    return {
+      name: el.pName.value.trim(),
+      fandom: el.pFandom.value.trim(),
+      convention: el.pCon.value.trim(),
+      deadline: fromInput(el.pDeadline.value),
+      color: fd.get('pcolor') || PROJECT_COLORS[0],
+      art: fd.get('part') || ''
+    };
+  }
+  function renderProjectPreview() {
+    const d = projectFormData();
+    const tasks = state.editingProjectId ? state.tasks.filter(t => t.projectId === state.editingProjectId) : [];
+    const pct = Math.round(progressOf(tasks) * 100);
+    el.pPreview.style.setProperty('--pc', d.color);
+    el.pPreview.style.setProperty('--p', pct + '%');
+    el.pPreview.innerHTML = dosInnerHtml(d, { pct, preview: true });
+  }
+
   function openProjectModal(project) {
     state.editingProjectId = project ? project.id : null;
     el.projectForm.reset();
     $$('.field.invalid', el.projectForm).forEach(f => f.classList.remove('invalid'));
-    el.projectModalTitle.textContent = project ? 'Перековать персонажа' : 'Новый персонаж';
-    $('span', el.projectSubmit).textContent = project ? 'Сохранить' : 'Создать';
+    el.projectModalTitle.textContent = project ? 'Досье' : 'Новое досье';
+    $$('button[type="submit"] span', el.projectForm).forEach(s => { s.textContent = project ? 'Сохранить' : 'Создать'; });
     el.projectDelete.hidden = !project;
     el.pName.value = project ? project.name : '';
     el.pFandom.value = project ? project.fandom : '';
@@ -1146,9 +1617,9 @@
 
     const used = new Set(state.projects.map(p => p.color));
     const color = project ? project.color : (PROJECT_COLORS.find(c => !used.has(c)) || PROJECT_COLORS[0]);
-    el.pColors.innerHTML = PROJECT_COLORS.map(c => `
-      <label class="swatch" title="${c}">
-        <input type="radio" name="pcolor" value="${c}" ${c === color ? 'checked' : ''}>
+    el.pColors.innerHTML = PROJECT_COLORS.map((c, i) => `
+      <label class="swatch" title="Цвет ${i + 1}">
+        <input type="radio" name="pcolor" value="${c}" ${c === color ? 'checked' : ''} aria-label="Цвет ${i + 1}">
         <span style="--c:${c}"></span>
       </label>`).join('');
 
@@ -1157,38 +1628,34 @@
       `<label class="art-opt" title="Без арта"><input type="radio" name="part" value="" ${art ? '' : 'checked'}><span>без арта</span></label>` +
       ARTS.map(a => `
         <label class="art-opt" title="${escapeHtml(a.title)}">
-          <input type="radio" name="part" value="${a.file}" ${a.file === art ? 'checked' : ''}>
-          <span><img src="assets/${a.file}" alt="${escapeHtml(a.title)}" loading="lazy" decoding="async"></span>
+          <input type="radio" name="part" value="${a.file}" ${a.file === art ? 'checked' : ''} aria-label="${escapeHtml(a.title)}">
+          <span><img src="assets/${a.file}" alt="" loading="lazy" decoding="async"></span>
         </label>`).join('');
+    renderProjectPreview();
     openOverlay(el.projectOverlay, el.pName);
   }
 
+  el.projectForm.addEventListener('input', renderProjectPreview);
+  el.projectForm.addEventListener('change', renderProjectPreview);
+
   el.projectForm.addEventListener('submit', e => {
     e.preventDefault();
-    const name = el.pName.value.trim();
-    if (!name) { invalid(el.pName); return; }
-    const data = {
-      name,
-      fandom: el.pFandom.value.trim(),
-      convention: el.pCon.value.trim(),
-      deadline: fromInput(el.pDeadline.value),
-      color: new FormData(el.projectForm).get('pcolor') || PROJECT_COLORS[0],
-      art: new FormData(el.projectForm).get('part') || ''
-    };
-    if (state.editingProjectId) {
-      updateProject(state.editingProjectId, data);
-      toast('Персонаж обновлён', { type: 'success' });
+    const data = projectFormData();
+    if (!data.name) { invalid(el.pName); return; }
+    let id = state.editingProjectId;
+    if (id) {
+      updateProject(id, data);
+      toast('Досье обновлено', { type: 'success' });
     } else {
       const p = createProject(data);
-      toast(`Персонаж «${p.name}» в кузнице`, { type: 'success' });
+      id = p.id;
+      toast(`Досье «${p.name}» заведено`, { type: 'success' });
       if (state.space === 'personal') setSpace('workshop');
     }
     closeOverlay(el.projectOverlay);
     renderAll();
-    // прокрутить к новому/изменённому постеру
-    const id = state.editingProjectId || state.projects[state.projects.length - 1].id;
-    const poster = $(`.poster[data-pid="${id}"]`, el.projectsTrack);
-    if (poster) poster.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'nearest' });
+    const item = $(`.dos[data-pid="${id}"]`, el.projectsTrack);
+    if (item) item.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
   });
 
   el.projectDelete.addEventListener('click', () => {
@@ -1197,38 +1664,37 @@
     closeOverlay(el.projectOverlay);
     const count = state.tasks.filter(t => t.projectId === p.id).length;
     askConfirm({
-      title: 'Удалить персонажа?',
-      html: `«<b>${escapeHtml(p.name)}</b>» исчезнет из кузницы. ${count ? `${count} ${plural(count, ['задача останется', 'задачи останутся', 'задач останутся'])} без проекта.` : ''}`,
+      title: 'Удалить досье?',
+      html: `<b>${escapeHtml(p.name)}</b>${count ? `${count} ${plural(count, ['контракт останется', 'контракта останутся', 'контрактов останутся'])} без персонажа. ` : ''}Сразу после удаления можно отменить.`,
       onConfirm: () => {
         const snap = deleteProject(p.id);
         renderAll();
-        if (snap) toast('Персонаж удалён', { type: 'danger', action: 'Отменить', onAction: () => { restoreProject(snap); renderAll(); } });
+        if (snap) toast('Досье удалено', { type: 'danger', action: 'Отменить', onAction: () => { restoreProject(snap); renderAll(); } });
       }
     });
   });
 
-  /* ---------- Действия на карточках ---------- */
+  /* ---------- Действия со строками ---------- */
   function askDeleteTask(task) {
     askConfirm({
-      title: 'Уничтожить задачу?',
-      html: `«<b>${escapeHtml(task.title)}</b>» будет удалена. Это можно отменить в течение нескольких секунд.`,
+      title: 'Удалить контракт?',
+      html: `<b>${escapeHtml(task.title)}</b>Сразу после удаления можно отменить.`,
       onConfirm: () => {
         const node = $(`.task[data-id="${task.id}"]`, el.board);
         const finish = () => {
+          if (panel.id === task.id) closePanel({ restoreFocus: false });
           const snap = deleteTask(task.id);
           renderAll();
           if (snap) {
-            toast('Задача уничтожена', {
+            toast('Контракт удалён', {
               type: 'danger', action: 'Отменить',
               onAction: () => { restoreTask(snap); renderAll({ flashId: snap.task.id }); }
             });
           }
         };
         if (node && !reducedMotion) {
-          node.animate([
-            { opacity: 1, transform: 'none', filter: 'blur(0)' },
-            { opacity: 0, transform: 'scale(.86) translateX(30px) rotate(4deg)', filter: 'blur(8px)' }
-          ], { duration: 340, easing: EASE, fill: 'forwards' }).onfinish = finish;
+          node.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(16px)' }],
+            { duration: 200, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'forwards' }).onfinish = finish;
         } else {
           finish();
         }
@@ -1236,276 +1702,162 @@
     });
   }
 
-  function toggleSubtask(card, task, btn) {
-    const sub = task.subtasks.find(s => s.id === btn.dataset.sid);
-    if (!sub) return;
-    sub.done = !sub.done;
-    task.updatedAt = Date.now();
-    save();
-    btn.classList.toggle('is-done', sub.done);
-    const done = task.subtasks.filter(s => s.done).length;
-    $('[data-subcount]', card).textContent = `${done}/${task.subtasks.length}`;
-    $('[data-subbar]', card).style.width = Math.round((done / task.subtasks.length) * 100) + '%';
-    renderStats();
-    renderProjects();
-    if (sub.done && done === task.subtasks.length && task.status !== 'done') {
-      toast('Все этапы готовы!', {
-        type: 'success', action: 'В «Готово»',
-        onAction: () => completeTask(task, $(`.task[data-id="${task.id}"]`, el.board))
-      });
-    }
+  // сменить статус; «выполнено» — через закрытие со штампом
+  function setTaskStatus(task, status, row) {
+    if (!task || task.status === status) return;
+    flushPanel();
+    if (status === 'done') { completeTask(task, row); return; }
+    updateTask(task.id, { status });
+    renderAll({ flashId: task.id });
+    refreshOwnPanel(task.id);
+  }
+
+  // своя правка задачи, открытой в панели, — перерисовать панель сразу, без «изменено на другом устройстве»
+  function refreshOwnPanel(id) {
+    if (panel.id !== id) return;
+    const t = panelTask();
+    if (!t) return;
+    const focused = document.activeElement && el.panel.contains(document.activeElement) ? document.activeElement : null;
+    const sel = focused && focused.dataset.f ? `[data-f="${focused.dataset.f}"]${focused.type === 'radio' ? ':checked' : ''}` : null;
+    renderPanel(t);
+    if (sel) { const again = $(sel, el.panel); if (again) again.focus({ preventScroll: true }); }
   }
 
   el.board.addEventListener('click', e => {
-    const card = e.target.closest('.task');
-    const btn = e.target.closest('[data-act]');
-    if (!card || !btn) return;
-    const task = state.tasks.find(t => t.id === card.dataset.id);
+    if (e.target.closest('[data-empty="task"]')) { openTaskModal(null); return; }
+    if (e.target.closest('[data-empty="reset"]')) { resetFilters(); return; }
+    const row = e.target.closest('.task');
+    if (!row) return;
+    const task = state.tasks.find(t => t.id === row.dataset.id);
     if (!task) return;
-    const act = btn.dataset.act;
-
+    const btn = e.target.closest('[data-act]');
+    const act = btn ? btn.dataset.act : 'open';
     if (act === 'toggle') {
-      const next = task.status === 'done' ? 'todo' : 'done';
-      card.classList.toggle('is-done', next === 'done');
-      if (next === 'done') {
-        // даём галочке прорисоваться, затем удар катаны
-        setTimeout(() => completeTask(task, card), reducedMotion ? 0 : 260);
-      } else {
-        setTimeout(() => {
-          updateTask(task.id, { status: next });
-          renderAll({ flashId: task.id });
-        }, reducedMotion ? 0 : 320);
-      }
-    } else if (act === 'expand') {
-      const open = !state.expanded.has(task.id);
-      open ? state.expanded.add(task.id) : state.expanded.delete(task.id);
-      card.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', String(open));
-    } else if (act === 'sub') {
-      toggleSubtask(card, task, btn);
-    } else if (act === 'edit') {
-      openTaskModal(task);
+      if (task.status === 'done') setTaskStatus(task, 'todo', row);
+      else completeTask(task, row);
+    } else if (act === 'status') {
+      openStatusMenu(task, btn);
+    } else if (act === 'edit' || act === 'open') {
+      openPanel(task);
     } else if (act === 'delete') {
       askDeleteTask(task);
     }
   });
 
-  el.board.addEventListener('click', e => {
-    if (e.target.closest('[data-empty="task"]')) openTaskModal(null);
-  });
-
-  el.board.addEventListener('dblclick', e => {
-    const card = e.target.closest('.task');
-    if (!card || e.target.closest('[data-act]')) return;
-    const task = state.tasks.find(t => t.id === card.dataset.id);
-    if (task) openTaskModal(task);
-  });
-
   el.board.addEventListener('keydown', e => {
-    const card = e.target.closest('.task');
-    if (!card || e.target !== card) return;
-    const task = state.tasks.find(t => t.id === card.dataset.id);
+    const row = e.target.closest('.task');
+    if (!row || e.target !== row) return;
+    const task = state.tasks.find(t => t.id === row.dataset.id);
     if (!task) return;
-    if (e.key === 'Enter') { e.preventDefault(); openTaskModal(task); }
-    if (e.key === 'Delete') { e.preventDefault(); askDeleteTask(task); }
+    if (e.key === 'Enter') { e.preventDefault(); openPanel(task); }
+    else if (e.key === 'Delete') { e.preventDefault(); askDeleteTask(task); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const rows = $$('.task', el.board);
+      const i = rows.indexOf(row);
+      const next = rows[e.key === 'ArrowDown' ? Math.min(rows.length - 1, i + 1) : Math.max(0, i - 1)];
+      if (next) next.focus();
+    }
   });
 
-  /* ---------- Drag & Drop ---------- */
-  let dragId = null;
+  /* ---------- Меню статуса ---------- */
+  let statusFor = null;
+  function openStatusMenu(task, btn) {
+    const m = el.statusMenu;
+    if (!m.hidden && statusFor === task.id) { closeMenus(); return; }
+    statusFor = task.id;
+    $$('.menu-item', m).forEach(b => b.setAttribute('aria-checked', String(b.dataset.status === task.status)));
+    openMenu(m, null);
+    m.style.position = 'fixed';
+    const r = btn.getBoundingClientRect();
+    const w = m.offsetWidth, h = m.offsetHeight;
+    const left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8));
+    let top = r.bottom + 4;
+    if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 4);
+    m.style.left = left + 'px';
+    m.style.top = top + 'px';
+    m.dataset.opener = task.id;
+    const cur = $('.menu-item[aria-checked="true"]', m) || $('.menu-item', m);
+    cur.focus();
+  }
+  el.statusMenu.addEventListener('click', e => {
+    const b = e.target.closest('.menu-item');
+    if (!b) return;
+    closeMenus();
+    const task = state.tasks.find(t => t.id === statusFor);
+    const row = task && $(`.task[data-id="${task.id}"]`, el.board);
+    if (!task) return;
+    if (b.dataset.row === 'open') { openPanel(task); return; }
+    if (b.dataset.row === 'delete') { askDeleteTask(task); return; }
+    setTaskStatus(task, b.dataset.status, row);
+    const btn = row && $('[data-act="status"]', row);
+    if (btn && document.contains(btn)) btn.focus({ preventScroll: true });
+  });
+  window.addEventListener('scroll', () => { if (!el.statusMenu.hidden) closeMenus(); }, { passive: true });
 
+  /* ---------- Перетаскивание: строку бросают на одну из трёх крупных зон ---------- */
+  let dragId = null;
   el.board.addEventListener('dragstart', e => {
-    const card = e.target.closest('.task');
-    if (!card) return;
-    dragId = card.dataset.id;
+    const row = e.target.closest('.task');
+    if (!row) return;
+    dragId = row.dataset.id;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', dragId);
-    requestAnimationFrame(() => card.classList.add('dragging'));
+    closeMenus();
+    requestAnimationFrame(() => { row.classList.add('dragging'); el.toolbar.classList.add('list-dragging'); });
   });
   el.board.addEventListener('dragend', e => {
-    const card = e.target.closest('.task');
-    if (card) card.classList.remove('dragging');
-    $$('.column-body.drag-over', el.board).forEach(b => b.classList.remove('drag-over'));
+    const row = e.target.closest('.task');
+    if (row) row.classList.remove('dragging');
+    el.toolbar.classList.remove('list-dragging');
+    $$('.dz.is-over', el.dropzones).forEach(z => z.classList.remove('is-over'));
     dragId = null;
   });
-  el.board.addEventListener('dragover', e => {
-    const body = e.target.closest('.column-body');
-    if (!body || !dragId) return;
+  el.dropzones.addEventListener('dragover', e => {
+    const dz = e.target.closest('.dz');
+    if (!dz || !dragId) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    $$('.column-body.drag-over', el.board).forEach(b => b !== body && b.classList.remove('drag-over'));
-    body.classList.add('drag-over');
+    $$('.dz', el.dropzones).forEach(z => z.classList.toggle('is-over', z === dz));
   });
-  el.board.addEventListener('dragleave', e => {
-    const body = e.target.closest('.column-body');
-    if (body && !body.contains(e.relatedTarget)) body.classList.remove('drag-over');
+  el.dropzones.addEventListener('dragleave', e => {
+    const dz = e.target.closest('.dz');
+    if (dz && !dz.contains(e.relatedTarget)) dz.classList.remove('is-over');
   });
-  el.board.addEventListener('drop', e => {
-    const body = e.target.closest('.column-body');
-    if (!body) return;
+  el.dropzones.addEventListener('drop', e => {
+    const dz = e.target.closest('.dz');
+    if (!dz) return;
     e.preventDefault();
-    body.classList.remove('drag-over');
     const id = e.dataTransfer.getData('text/plain') || dragId;
     const task = state.tasks.find(t => t.id === id);
-    const status = body.dataset.drop;
-    if (!task || task.status === status) return;
-    if (status === 'done') {
-      completeTask(task, $(`.task[data-id="${id}"]`, el.board));
-      return;
-    }
-    updateTask(id, { status });
-    renderAll({ flashId: id });
+    el.toolbar.classList.remove('list-dragging');
+    dz.classList.remove('is-over');
+    if (task) setTaskStatus(task, dz.dataset.drop, $(`.task[data-id="${id}"]`, el.board));
   });
 
   /* =========================================================
-     Празднование: удар катаны по карточке и самурай с поздравлением
+     Закрытие контракта: скан строки и штамп «Контракт закрыт»;
+     когда готов весь персонаж — «Досье закрыто»
      ========================================================= */
-  // самураи, вырезанные из артов (прозрачный фон); ключ — исходный арт для обложек персонажей
-  const SAMURAI = {
-    'art-banner.jpg': 'samurai/banner.webp',
-    'art-fire.jpg': 'samurai/fire.webp',
-    'art-spirit.jpg': 'samurai/spirit.webp',
-    'art-spirit-jump.jpg': 'samurai/spirit-jump.webp',
-    'art-ronin.jpg': 'samurai/ronin.webp',
-    'art-flame.jpg': 'samurai/flame.webp'
-  };
-  const SAMURAI_ARTS = Object.values(SAMURAI);
-
-  // подгружаем фигуры заранее, чтобы поздравление открывалось мгновенно
-  const preloadSamurai = () => SAMURAI_ARTS.forEach(f => { const i = new Image(); i.decoding = 'async'; i.src = `assets/${f}`; });
-  if ('requestIdleCallback' in window) requestIdleCallback(preloadSamurai, { timeout: 4000 });
-  else setTimeout(preloadSamurai, 2500);
-  const TASK_CHEERS = [
-    ['Выковано!', 'Чистый разрез'],
-    ['Мастерски!', 'Клинок доволен'],
-    ['Готово!', 'Ещё шаг к дефиле'],
-    ['見事!', 'Безупречная работа']
-  ];
-  let lastArt = '';
   let celebration = null;
-
   const projectDone = pid => {
     const list = state.tasks.filter(t => t.projectId === pid);
     return list.length > 0 && list.every(t => t.status === 'done');
   };
-  const pick = list => list[Math.floor(Math.random() * list.length)];
 
-  // обложка персонажа → его вырезанный самурай; иначе случайный, без повтора подряд
-  function pickArt(preferred) {
-    if (preferred && SAMURAI[preferred]) return SAMURAI[preferred];
-    const pool = SAMURAI_ARTS.filter(a => a !== lastArt);
-    lastArt = pick(pool);
-    return lastArt;
-  }
-
-  // карточка разрезается по диагонали: блик клинка, искры, половинки разлетаются
-  function slashCard(card) {
-    return new Promise(resolve => {
-      card.classList.remove('dragging', 'flash');
-      const r = card.getBoundingClientRect();
-      if (!r.width) { resolve(); return; }
-      const yL = 0.66, yR = 0.3; // линия разреза: слева ниже, справа выше
-      const pieces = [];
-
-      const piece = clip => {
-        const c = card.cloneNode(true);
-        c.classList.add('cut-piece');
-        c.removeAttribute('draggable');
-        c.removeAttribute('tabindex');
-        c.setAttribute('aria-hidden', 'true');
-        Object.assign(c.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', clipPath: clip });
-        document.body.appendChild(c);
-        pieces.push(c);
-        return c;
-      };
-      const top = piece(`polygon(0 0, 100% 0, 100% ${yR * 100}%, 0 ${yL * 100}%)`);
-      const bottom = piece(`polygon(0 ${yL * 100}%, 100% ${yR * 100}%, 100% 100%, 0 100%)`);
-      card.style.visibility = 'hidden';
-
-      // геометрия линии разреза
-      const x0 = r.left, y0 = r.top + r.height * yL;
-      const x1 = r.right, y1 = r.top + r.height * yR;
-      const len = Math.hypot(x1 - x0, y1 - y0);
-      const ux = (x1 - x0) / len, uy = (y1 - y0) / len;
-      const nx = -uy, ny = ux; // нормаль: от верхней половинки к нижней
-      const ang = Math.atan2(y1 - y0, x1 - x0);
-      const ext = 60;
-
-      const blade = document.createElement('span');
-      blade.className = 'cut-blade';
-      Object.assign(blade.style, { left: (x0 - ux * ext) + 'px', top: (y0 - uy * ext - 3) + 'px', width: (len + ext * 2) + 'px' });
-      document.body.appendChild(blade);
-      pieces.push(blade);
-      blade.animate([
-        { transform: `rotate(${ang}rad) scaleX(0)`, opacity: 1 },
-        { transform: `rotate(${ang}rad) scaleX(1)`, opacity: 1, offset: 0.42 },
-        { transform: `rotate(${ang}rad) scaleX(1) scaleY(2.4)`, opacity: 0 }
-      ], { duration: 460, easing: 'cubic-bezier(.7, 0, .2, 1)' });
-
-      // искры вдоль разреза
-      for (let i = 0; i < 14; i++) {
-        const t = Math.random();
-        const sx = x0 + (x1 - x0) * t, sy = y0 + (y1 - y0) * t;
-        const s = document.createElement('span');
-        s.className = 'cut-spark';
-        s.style.left = sx + 'px';
-        s.style.top = sy + 'px';
-        document.body.appendChild(s);
-        pieces.push(s);
-        const side = Math.random() < 0.5 ? -1 : 1;
-        const dist = 30 + Math.random() * 70;
-        const dx = (nx * side + ux * (Math.random() - 0.5) * 1.6) * dist;
-        const dy = (ny * side + uy * (Math.random() - 0.5) * 1.6) * dist;
-        s.animate([
-          { transform: `translate(-50%, -50%) rotate(${ang}rad) scale(1)`, opacity: 1 },
-          { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${ang + side}rad) scale(.2)`, opacity: 0 }
-        ], { duration: 420 + Math.random() * 300, delay: 120 + t * 120, easing: 'cubic-bezier(.2, .8, .3, 1)', fill: 'both' });
-      }
-
-      // половинки разлетаются и падают
-      const split = (el, sign, rot) => el.animate([
-        { transform: 'none', filter: 'brightness(1)', opacity: 1 },
-        { transform: 'none', filter: 'brightness(2.2)', opacity: 1, offset: 0.16 },
-        { transform: `translate(${nx * sign * 18}px, ${ny * sign * 18}px) rotate(${rot * 0.4}deg)`, filter: 'brightness(1.1)', opacity: 1, offset: 0.42 },
-        { transform: `translate(${nx * sign * 46 + sign * 24}px, ${ny * sign * 46 + 150}px) rotate(${rot}deg)`, filter: 'brightness(.9) blur(1px)', opacity: 0 }
-      ], { duration: 1050, delay: 120, easing: 'cubic-bezier(.45, 0, .7, .6)', fill: 'both' });
-      split(top, -1, -9);
-      split(bottom, 1, 7);
-      if (navigator.vibrate) { try { navigator.vibrate(25); } catch (e) { /* ignore */ } }
-
-      setTimeout(resolve, 300);
-      setTimeout(() => pieces.forEach(p => p.remove()), 1300);
-    });
-  }
-
-  // окно с артом-самураем
-  function showSamurai({ task, project }) {
+  function showDossierClosed(project) {
     if (celebration) celebration.close(true);
-    const isProject = !!project;
-    const art = pickArt(isProject ? project.art : '');
-    const [title, sub] = isProject ? ['Персонаж готов!', 'Все задачи выкованы'] : pick(TASK_CHEERS);
-    const detail = isProject
-      ? (project.convention ? `«${project.name}» готов. Впереди — ${project.convention}!` : `«${project.name}» готов к дефиле!`)
-      : `«${task.title}»`;
-
     const node = document.createElement('div');
-    node.className = 'samurai-pop' + (isProject ? ' is-project' : '');
+    node.className = 'dossier-pop';
     node.setAttribute('role', 'status');
+    node.setAttribute('aria-live', 'assertive');
     node.innerHTML = `
-      <span class="sp-rays" aria-hidden="true"></span>
-      <div class="sp-stage">
-        <span class="sp-kanji" aria-hidden="true">${isProject ? '完成' : '見事'}</span>
-        ${isProject ? '<span class="sp-shards" aria-hidden="true">' + Array.from({ length: 16 }, (_, i) => `<i style="--a:${i * 22.5}deg;--d:${120 + (i % 4) * 40}px;--dl:${(i % 5) * 40}ms"></i>`).join('') + '</span>' : ''}
-        <div class="sp-hero">
-          <span class="sp-ground" aria-hidden="true"></span>
-          <img src="assets/${art}" alt="" decoding="async">
-          <span class="sp-cut" aria-hidden="true"></span>
-        </div>
-        <div class="sp-banner">
-          <b>${escapeHtml(title)}</b>
-          <span>${escapeHtml(sub)}</span>
-          <small>${escapeHtml(detail)}</small>
-        </div>
-        <p class="sp-hint">нажми, чтобы продолжить</p>
+      <div class="dp-card">
+        ${project.art ? `<span class="frame dp-art is-scanning" style="--art:url('assets/${project.art}')"><img src="assets/${project.art}" alt="" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
+        <span class="dp-stamp">Досье закрыто</span>
+        <b class="dp-name">${escapeHtml(project.name)}</b>
+        <span class="dp-sub">${escapeHtml(project.convention ? `Готов к ${project.convention}` : 'Готов к дефиле')}</span>
+        <span class="dp-hint">Нажми, чтобы продолжить</span>
       </div>`;
     document.body.appendChild(node);
 
@@ -1516,111 +1868,113 @@
       clearTimeout(timer);
       document.removeEventListener('keydown', onKey, true);
       if (celebration && celebration.node === node) celebration = null;
-      if (instant) { node.remove(); return; }
+      if (instant || reducedMotion) { node.remove(); return; }
       node.classList.add('out');
-      setTimeout(() => node.remove(), 450);
+      setTimeout(() => node.remove(), 220);
     };
     const onKey = e => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); close(); } };
     node.addEventListener('click', () => close());
     document.addEventListener('keydown', onKey, true);
-    const timer = setTimeout(close, isProject ? 4600 : 2900);
+    const timer = setTimeout(close, 4600);
     celebration = { node, close };
   }
 
-  function celebrate(task, projectWasDone) {
+  function celebrate(task, projectWasDone, prevStatus = 'todo') {
     const pid = task.projectId;
     const project = pid && !projectWasDone && projectDone(pid) ? projectById(pid) : null;
-    if (reducedMotion) {
-      toast(project ? `Персонаж «${project.name}» готов!` : 'Выковано! Задача выполнена', { type: 'success' });
-      return;
-    }
-    showSamurai({ task, project });
+    if (project && !reducedMotion) { showDossierClosed(project); return; }
+    const msg = project
+      ? `Досье «${project.name}» закрыто — ${project.convention ? `готов к ${project.convention}` : 'готов к дефиле'}`
+      : `Контракт закрыт: «${task.title}»`;
+    toast(msg, {
+      type: 'success', action: 'Вернуть',
+      onAction: () => { updateTask(task.id, { status: prevStatus }); renderAll({ flashId: task.id }); refreshOwnPanel(task.id); }
+    });
   }
 
-  // отметить задачу выполненной с праздником (card — карточка на доске, если есть)
-  async function completeTask(task, card) {
+  // закрыть контракт (row — строка в списке, если видна)
+  async function completeTask(task, row) {
+    if (!task || task.status === 'done') return;
+    flushPanel();
     const projectWasDone = task.projectId ? projectDone(task.projectId) : false;
-    if (card && !reducedMotion) {
-      await slashCard(card);
-      card.remove(); // новая карточка появится в «Готово», а не прилетит со старого места
+    const prev = task.status;
+    if (row && document.contains(row) && !reducedMotion) {
+      row.classList.add('is-closing', 'is-done');
+      const stamp = document.createElement('span');
+      stamp.className = 'stamp';
+      stamp.textContent = 'Контракт закрыт';
+      row.appendChild(stamp);
+      if (navigator.vibrate) { try { navigator.vibrate(20); } catch (e) { /* ignore */ } }
+      await new Promise(r => setTimeout(r, 650));
     }
     updateTask(task.id, { status: 'done' });
     renderAll({ flashId: task.id });
-    setTimeout(() => celebrate(task, projectWasDone), card && !reducedMotion ? 320 : 0);
+    refreshOwnPanel(task.id);
+    celebrate(task, projectWasDone, prev);
   }
 
-  /* ---------- Тосты ---------- */
+  /* ---------- Уведомления ---------- */
   function toast(message, { type = 'info', action, onAction, duration = 5000 } = {}) {
     const node = document.createElement('div');
-    node.className = 'toast glass';
+    node.className = 'toast';
     node.dataset.type = type;
+    node.setAttribute('role', type === 'danger' ? 'alert' : 'status');
     node.innerHTML = `<span class="toast-mark"></span><span class="toast-msg">${escapeHtml(message)}</span>` +
-      (action ? `<button class="toast-action" type="button">${escapeHtml(action)}</button>` : '') +
-      `<span class="toast-bar" style="animation-duration:${duration}ms"></span>`;
+      (action ? `<button class="toast-action" type="button">${escapeHtml(action)}</button>` : '');
     el.toasts.appendChild(node);
 
     let closed = false;
+    let timer = 0;
+    let left = duration;
+    let started = 0;
     const close = () => {
       if (closed) return;
       closed = true;
+      clearTimeout(timer);
       node.classList.add('out');
-      node.addEventListener('animationend', () => node.remove(), { once: true });
-      setTimeout(() => node.remove(), 600);
+      setTimeout(() => node.remove(), reducedMotion ? 0 : 160);
     };
-    const timer = setTimeout(close, duration);
+    const arm = () => { started = Date.now(); timer = setTimeout(close, left); };
+    arm();
+    // таймер останавливается, пока курсор над уведомлением
+    node.addEventListener('mouseenter', () => { clearTimeout(timer); left = Math.max(1200, left - (Date.now() - started)); });
+    node.addEventListener('mouseleave', () => { if (!closed) arm(); });
     if (action) {
       $('.toast-action', node).addEventListener('click', () => {
-        clearTimeout(timer);
         if (onAction) onAction();
         close();
       });
     }
     const live = $$('.toast:not(.out)', el.toasts);
-    if (live.length > 4) live[0].classList.add('out');
+    if (live.length > 4) { live[0].classList.add('out'); setTimeout(() => live[0].remove(), 160); }
   }
 
-  /* ---------- Тема ---------- */
-  function setTheme(theme) {
-    root.setAttribute('data-theme', theme);
-    try { localStorage.setItem(KEYS.theme, theme); } catch (e) { /* ignore */ }
+  /* ---------- Телефон: разделы таб-бара ---------- */
+  function setView(view) {
+    el.app.dataset.view = view;
+    $$('.tab-item', el.tabbar).forEach(b => b.classList.toggle('is-active', b.dataset.tab === view));
+    window.scrollTo(0, 0);
   }
-
-  el.themeToggle.addEventListener('click', () => {
-    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    if (!document.startViewTransition || reducedMotion) { setTheme(next); return; }
-    const r = el.themeToggle.getBoundingClientRect();
-    const x = r.left + r.width / 2;
-    const y = r.top + r.height / 2;
-    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-    const transition = document.startViewTransition(() => setTheme(next));
-    transition.ready.then(() => {
-      root.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 760, easing: 'cubic-bezier(.65, 0, .35, 1)', pseudoElement: '::view-transition-new(root)' }
-      );
-    }).catch(() => {});
+  el.tabbar.addEventListener('click', e => {
+    const b = e.target.closest('.tab-item');
+    if (!b) return;
+    const tab = b.dataset.tab;
+    if (tab === 'list' || tab === 'dossier') {
+      if (panel.id) closePanel({ restoreFocus: false });
+      closeMenus();
+      setView(tab);
+    } else if (tab === 'add') {
+      openTaskModal(null);
+    } else if (tab === 'ai') {
+      openAiPlan();
+    } else if (tab === 'more') {
+      toggleMenu(el.userMenu, el.userBtn);
+    }
   });
-
-  /* ---------- Блик стекла и параллакс фона ---------- */
-  let raf = 0;
-  let lastEvt = null;
-  document.addEventListener('pointermove', e => {
-    lastEvt = e;
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = 0;
-      const ev = lastEvt;
-      if (!reducedMotion) {
-        el.bg.style.setProperty('--px', ((ev.clientX / innerWidth) - 0.5).toFixed(3));
-        el.bg.style.setProperty('--py', ((ev.clientY / innerHeight) - 0.5).toFixed(3));
-      }
-      const g = ev.target && ev.target.closest ? ev.target.closest('.glass') : null;
-      if (!g) return;
-      const r = g.getBoundingClientRect();
-      g.style.setProperty('--mx', (ev.clientX - r.left) + 'px');
-      g.style.setProperty('--my', (ev.clientY - r.top) + 'px');
-    });
-  }, { passive: true });
+  phoneQuery.addEventListener('change', () => {
+    if (!isPhone()) { setView('list'); el.hud.classList.remove('search-open'); }
+    closeMenus();
+  });
 
   /* =========================================================
      ToDo · AI-план: приоритезация задач через Gemini личным ключом
@@ -1655,6 +2009,7 @@
     el.umAiKeyHint.dataset.on = has ? '1' : '';
     el.aiNoKey.hidden = store.mode !== 'cloud' || !aiKey.known || has;
     el.aiForm.classList.toggle('is-locked', store.mode === 'cloud' && aiKey.known && !has);
+    el.aiKeyLabel.textContent = store.mode !== 'cloud' ? 'Gemini · нужен аккаунт' : has ? `Gemini · твой ключ ${aiKey.hint || ''}`.trim() : 'Gemini · ключ не добавлен';
   }
 
   async function refreshKey() {
@@ -1669,7 +2024,7 @@
   }
 
   function openKeyModal() {
-    closeUserMenu();
+    closeMenus();
     el.keyInput.value = '';
     el.keyStatus.textContent = aiKey.hasKey ? `Ключ сохранён ${aiKey.hint || ''}`.trim() : 'Ключ не добавлен';
     el.keyStatus.dataset.on = aiKey.hasKey ? '1' : '';
@@ -1775,7 +2130,7 @@
 
   function renderSpec() {
     if (!ai.spec) {
-      el.specDoc.innerHTML = `<div class="empty"><span class="empty-kanji">策</span><span>${aiPlanned().length ? 'SPEC появится после пересчёта плана' : 'Нажми «Расставить» — и здесь появится SPEC.md'}</span></div>`;
+      el.specDoc.innerHTML = `<div class="empty">${aiPlanned().length ? 'SPEC появится после пересчёта плана' : 'Нажми «Расставить» — здесь появится SPEC.md'}</div>`;
       el.specRaw.textContent = '';
     } else {
       el.specDoc.innerHTML = renderMarkdown(ai.spec);
@@ -1788,7 +2143,6 @@
     ai.tab = tab;
     $$('.tab', el.aiTabs).forEach(b => b.classList.toggle('is-active', b.dataset.aitab === tab));
     $$('.ai-panel', el.aiOverlay).forEach(p => { p.hidden = p.dataset.aipanel !== tab; });
-    requestAnimationFrame(() => moveInd(el.aiTabs));
   }
   el.aiTabs.addEventListener('click', e => {
     const b = e.target.closest('.tab');
@@ -1818,29 +2172,25 @@
     const proj = projectById(t.projectId);
     const work = t.workType && WORK[t.workType];
     const sug = t.aiPriority && t.aiPriority !== t.priority ? t.aiPriority : null;
-    const P = { critical: 'P0', high: 'P1', medium: 'P2', low: 'P3' };
-    const tags = [
-      proj ? `<span class="tag tag-project" style="--tc:${proj.color};color:${inkOn(proj.color)}"><span>${escapeHtml(proj.name)}</span></span>` : '',
-      work ? `<span class="tag" style="--tc:${work.color}">${icon(work.icon)}${work.label}</span>` : '',
-      t.status === 'progress' ? `<span class="tag" style="--tc:var(--magenta)">${icon('armor')}В работе</span>` : ''
-    ].join('');
+    const sub = [proj ? escapeHtml(proj.name) : '', work ? work.label : '', t.status === 'progress' ? 'в работе' : ''].filter(Boolean).join(' · ');
+    const d = humanDue(t);
     return `
       <li class="ai-item" data-id="${t.id}" data-p="${t.aiPriority || t.priority}" style="--i:${i}">
+        <span class="prio" aria-hidden="true"></span>
         <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
-        <button class="check" type="button" data-ai="done" aria-label="Отметить выполненной">${icon('check')}</button>
+        <button class="check" type="button" data-ai="done" aria-label="Закрыть контракт: ${escapeHtml(t.title)}">${icon('check')}</button>
         <div class="ai-body">
           <h4 class="ai-title">${escapeHtml(t.title)}</h4>
-          ${tags ? `<div class="task-tags">${tags}</div>` : ''}
-          ${t.aiReason ? `<p class="ai-reason">${icon('spark')}<span>${escapeHtml(t.aiReason)}</span></p>` : ''}
-          ${t.aiDone ? `<p class="ai-done">${icon('check')}<span>Готово, когда: ${escapeHtml(t.aiDone)}</span></p>` : ''}
-          <div class="task-meta ai-meta-row">
-            <span class="badge" data-p="${t.priority}"><span>${P[t.priority]} · ${PRIORITY[t.priority].label}</span></span>
-            ${sug ? `<span class="ai-arrow">→</span><span class="badge" data-p="${sug}"><span>${P[sug]} · ${PRIORITY[sug].label}</span></span>
-              <button type="button" class="ai-apply" data-ai="apply">применить</button>` : ''}
-            ${dueHtml(t)}
+          ${sub || d ? `<p class="ai-sub">${[sub, `<span class="due ${d.cls}">${escapeHtml(d.text)}</span>`].filter(Boolean).join(' · ')}</p>` : ''}
+          ${t.aiReason ? `<p class="ai-reason"><b>Почему</b>${escapeHtml(t.aiReason)}</p>` : ''}
+          ${t.aiDone ? `<p class="ai-done"><b>Готово, когда</b>${escapeHtml(t.aiDone)}</p>` : ''}
+          <div class="ai-row">
+            <span class="pchip" data-p="${t.priority}" title="${PRIORITY[t.priority].label}">${PRIORITY[t.priority].code}</span>
+            ${sug ? `<span class="ai-arrow">→</span><span class="pchip" data-p="${sug}" title="${PRIORITY[sug].label}">${PRIORITY[sug].code}</span>
+              <button type="button" class="ai-apply" data-ai="apply">Применить</button>` : ''}
           </div>
         </div>
-        <button class="mini-btn" type="button" data-ai="edit" aria-label="Редактировать" title="Редактировать">${icon('edit')}</button>
+        <button class="icon-btn" type="button" data-ai="edit" aria-label="Открыть контракт" title="Открыть">${icon('edit')}</button>
       </li>`;
   }
 
@@ -1852,12 +2202,12 @@
     el.aiFocusText.textContent = ai.focus;
     el.aiList.innerHTML = list.length
       ? list.map(aiItemHtml).join('')
-      : `<li class="empty"><span class="empty-kanji">策</span><span>${open.length ? 'Плана ещё нет — нажми «Расставить»' : 'Открытых задач нет — всё выковано'}</span></li>`;
+      : `<li class="empty">${open.length ? 'Плана ещё нет — нажми «Расставить»' : 'Открытых контрактов нет'}</li>`;
     const pending = list.filter(t => t.aiPriority && t.aiPriority !== t.priority).length;
     el.aiApplyAll.disabled = !pending;
     $('span', el.aiApplyAll).textContent = pending ? `Применить приоритеты (${pending})` : 'Приоритеты совпадают';
     const parts = [];
-    if (ai.at && list.length) parts.push('план от ' + relative(ai.at));
+    if (ai.at && list.length) parts.push('план составлен ' + relative(ai.at));
     if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новая задача', 'новые задачи', 'новых задач'])} не в плане`);
     el.aiMeta.textContent = parts.join(' · ');
     $('span', el.aiRun).textContent = list.length ? 'Пересчитать' : 'Расставить';
@@ -1869,8 +2219,8 @@
     if (reducedMotion) return;
     const nodes = ai.tab === 'spec' ? $$('.spec-doc > *', el.aiOverlay) : $$('.ai-item', el.aiList);
     nodes.forEach((node, i) => node.animate(
-      [{ opacity: 0, transform: 'translateY(22px) rotate(-1deg)', filter: 'blur(6px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
-      { duration: 620, delay: Math.min(i, 14) * 55, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'backwards' }));
+      [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 200, delay: Math.min(i, 12) * 40, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' }));
   }
 
   function openAiPlan() {
@@ -1882,12 +2232,6 @@
     setTimeout(aiReveal, 120);
     if (store.mode === 'cloud') refreshKey();
   }
-
-  // параллакс арта и иероглифа при прокрутке окна — как на лендинге
-  el.aiOverlay.querySelector('.ai-modal').addEventListener('scroll', e => {
-    const y = e.currentTarget.scrollTop;
-    e.currentTarget.style.setProperty('--py', y.toFixed(0));
-  }, { passive: true });
 
   async function runAiPlan() {
     if (aiBusy) return;
@@ -1978,7 +2322,8 @@
       }, reducedMotion ? 0 : 300);
     } else if (act === 'edit') {
       closeOverlay(el.aiOverlay);
-      openTaskModal(task);
+      if (isPhone()) setView('list');
+      openPanel(task);
     }
   });
   el.aiApplyAll.addEventListener('click', () => {
@@ -1986,25 +2331,38 @@
     if (!n) return;
     render();
     renderAiPlan();
-    toast(`AI-приоритеты применены: ${n} ${plural(n, ['задача', 'задачи', 'задач'])}`, { type: 'success' });
+    toast(`Приоритеты применены: ${n} ${plural(n, ['контракт', 'контракта', 'контрактов'])}`, { type: 'success' });
   });
 
   /* ---------- Горячие клавиши ---------- */
   document.addEventListener('keydown', e => {
     if (!el.auth.hidden) return;
-    if (e.key === 'Escape' && !el.userMenu.hidden) { closeUserMenu(); el.userBtn.focus(); return; }
     if (e.key === 'Escape') {
+      if (anyMenuOpen()) {
+        const statusOpen = !el.statusMenu.hidden;
+        const userOpen = !el.userMenu.hidden;
+        closeMenus();
+        if (statusOpen) { const row = $(`.task[data-id="${statusFor}"] [data-act="status"]`, el.board); if (row) row.focus(); }
+        else if (userOpen) el.userBtn.focus();
+        return;
+      }
       const top = overlays.find(o => o.classList.contains('open'));
-      if (top) closeOverlay(top);
-      else if (document.activeElement === el.search) el.search.blur();
+      if (top) { closeOverlay(top); return; }
+      if (document.activeElement === el.search) { el.search.blur(); el.hud.classList.remove('search-open'); return; }
+      if (panel.id) { e.preventDefault(); closePanel(); }
       return;
     }
     const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
     if (typing || anyOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === '?') { e.preventDefault(); openOverlay(el.keysOverlay, $('[data-close]', el.keysOverlay)); return; }
     if (e.code === 'KeyN') { e.preventDefault(); openTaskModal(null); }
     if (e.code === 'KeyP') { e.preventDefault(); openProjectModal(null); }
     if (e.code === 'KeyA') { e.preventDefault(); openAiPlan(); }
-    if (e.key === '/' || e.code === 'Slash') { e.preventDefault(); el.search.focus(); }
+    if (e.key === '/' || e.code === 'Slash') {
+      e.preventDefault();
+      if (isPhone()) el.hud.classList.add('search-open');
+      el.search.focus();
+    }
   });
 
   el.addBtn.addEventListener('click', () => openTaskModal(null));
@@ -2013,7 +2371,7 @@
      Облако: синхронизация через наш API (Vercel + Neon)
      ========================================================= */
   const SYNC_TEXT = {
-    local: 'Данные только на этом устройстве',
+    local: 'Данные только в этом браузере',
     syncing: 'Синхронизация…',
     synced: 'Сохранено в облаке',
     offline: 'Нет связи — сохраню, когда появится сеть',
@@ -2195,7 +2553,7 @@
   }
 
   async function signOut() {
-    closeUserMenu();
+    closeMenus();
     if (!cloud.user) { showAuth('login'); return; }
     if (cloud.timer) { clearTimeout(cloud.timer); cloud.timer = 0; await push(); }
     try { await api('auth/logout', { method: 'POST', body: {} }); } catch (e) { /* ignore */ }
@@ -2222,22 +2580,10 @@
      Экран входа и регистрации
      ========================================================= */
   const AUTH_TEXT = {
-    login: { title: 'Вход в кузницу', sub: 'Твои костюмы, этапы и бюджет — на любом устройстве.', submit: 'Войти' },
-    register: { title: 'Новый мастер', sub: 'Аккаунт хранит твои данные в облаке и открывает их на любом устройстве.', submit: 'Создать аккаунт' }
+    login: { title: 'Вход в кузницу', sub: 'Досье, контракты и бюджет — на любом устройстве.', submit: 'Войти' },
+    register: { title: 'Новый мастер', sub: 'Войди один раз — данные будут на телефоне и ноутбуке.', submit: 'Создать аккаунт' }
   };
   let authMode = 'login';
-  let galleryBuilt = false;
-
-  function buildGallery() {
-    if (galleryBuilt) return;
-    galleryBuilt = true;
-    const cols = [[], [], []];
-    ARTS.forEach((a, i) => cols[i % 3].push(a));
-    el.authGallery.innerHTML = cols.map(col => {
-      const items = col.map(a => `<span class="print"><img src="assets/${a.file}" alt="" decoding="async"></span>`).join('');
-      return `<div class="auth-col">${items}${items}</div>`;
-    }).join('');
-  }
 
   function authMessage(text, type = 'info') {
     el.authMsg.textContent = text || '';
@@ -2252,12 +2598,15 @@
     el.authSub.textContent = t.sub;
     $('span', el.authSubmit).textContent = t.submit;
     el.aPass.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-    $$('.tab', el.authTabs).forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
+    $$('.tab', el.authTabs).forEach(b => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
     $$('.field.invalid', el.authForm).forEach(f => f.classList.remove('invalid'));
-    requestAnimationFrame(() => moveInd(el.authTabs));
 
     if (cloud.available === false) {
-      authMessage('Сервер аккаунтов недоступен — проверь интернет и обнови страницу. Пока можно работать без аккаунта.', 'info');
+      authMessage('Сервер не отвечает. Проверь интернет и обнови страницу — или продолжи без аккаунта.', 'info');
       el.authSubmit.disabled = true;
     } else {
       authMessage('');
@@ -2266,29 +2615,28 @@
   }
 
   function showAuth(mode = 'login') {
-    closeUserMenu();
+    closeMenus();
+    if (panel.id) closePanel({ restoreFocus: false });
     overlays.forEach(closeOverlay);
-    buildGallery();
     el.auth.classList.remove('leaving');
     el.auth.hidden = false;
     setAuthMode(mode);
-    setTimeout(() => moveInd(el.authTabs), 350);
+    const frame = $('.auth-art .frame', el.auth);
+    if (frame && !reducedMotion) { frame.classList.remove('is-scanning'); void frame.offsetWidth; frame.classList.add('is-scanning'); }
     setTimeout(() => el.aEmail.focus(), 120);
   }
 
   function hideAuth() {
     if (el.auth.hidden) return;
-    if (reducedMotion) { el.auth.hidden = true; return; }
+    const done = () => { el.auth.hidden = true; el.auth.classList.remove('leaving'); };
+    if (reducedMotion) { done(); return; }
     el.auth.classList.add('leaving');
-    el.auth.addEventListener('animationend', () => {
-      el.auth.hidden = true;
-      el.auth.classList.remove('leaving');
-    }, { once: true });
-    requestAnimationFrame(moveAllInd);
+    el.auth.addEventListener('animationend', done, { once: true });
+    setTimeout(() => { if (el.auth.classList.contains('leaving')) done(); }, 400);
   }
 
   const AUTH_ERRORS = {
-    invalid_credentials: 'Неверная почта или пароль',
+    invalid_credentials: 'Почта или пароль не подходят. Проверь раскладку и попробуй ещё раз',
     email_taken: 'Эта почта уже зарегистрирована — войди',
     invalid_email: 'Похоже, почта указана с ошибкой',
     weak_password: 'Пароль слишком короткий — минимум 6 символов',
@@ -2359,47 +2707,30 @@
     el.userAvatar.textContent = initial;
     el.umAvatar.textContent = initial;
     el.umName.textContent = name;
-    el.umEmail.textContent = u ? u.email : 'локальный режим';
-    el.userBtn.title = u ? `${name} · ${u.email}` : 'Гость — данные на этом устройстве';
+    el.umEmail.textContent = u ? u.email : 'без аккаунта';
+    el.userBtn.title = u ? `${name} · ${u.email}` : 'Гость — данные только в этом браузере';
     el.umLogin.hidden = !!u;
     el.umLogout.hidden = !u;
     el.umSyncNow.hidden = !u;
     if (typeof renderKeyUi === 'function') renderKeyUi();
   }
 
-  function openUserMenu() {
-    el.userMenu.classList.remove('out');
-    el.userMenu.hidden = false;
-    el.userBtn.setAttribute('aria-expanded', 'true');
-  }
-  function closeUserMenu() {
-    if (el.userMenu.hidden) return;
-    el.userBtn.setAttribute('aria-expanded', 'false');
-    if (reducedMotion) { el.userMenu.hidden = true; return; }
-    el.userMenu.classList.add('out');
-    el.userMenu.addEventListener('animationend', () => {
-      if (el.userMenu.classList.contains('out')) { el.userMenu.hidden = true; el.userMenu.classList.remove('out'); }
-    }, { once: true });
-  }
-
-  el.userBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    el.userMenu.hidden ? openUserMenu() : closeUserMenu();
-  });
-  document.addEventListener('click', e => {
-    if (!el.userMenu.hidden && !e.target.closest('.user-wrap')) closeUserMenu();
+  el.userBtn.addEventListener('click', () => toggleMenu(el.userMenu, el.userBtn));
+  el.userMenu.addEventListener('click', e => {
+    // пункты-действия закрывают меню; тумблер анимаций — нет
+    if (e.target.closest('button.menu-item')) setTimeout(() => closeMenus(), 0);
   });
   el.umLogin.addEventListener('click', () => showAuth('login'));
   el.umLogout.addEventListener('click', signOut);
 
   // удалить всех персонажей и задачи (с подтверждением и отменой)
   el.umReset.addEventListener('click', () => {
-    closeUserMenu();
+    closeMenus();
     const nt = state.tasks.length, np = state.projects.length;
     if (!nt && !np) { toast('Доска уже пустая'); return; }
     askConfirm({
       title: 'Начать с чистого листа?',
-      html: `Будут удалены <b>${np} ${plural(np, ['персонаж', 'персонажа', 'персонажей'])}</b> и <b>${nt} ${plural(nt, ['задача', 'задачи', 'задач'])}</b>${cloud.user ? ' — на всех устройствах' : ''}. Отменить можно в течение нескольких секунд.`,
+      html: `Удалятся ${np} ${plural(np, ['досье', 'досье', 'досье'])} и ${nt} ${plural(nt, ['контракт', 'контракта', 'контрактов'])}${cloud.user ? ' — на всех устройствах' : ''}. Сразу после удаления можно отменить.`,
       button: 'Очистить',
       onConfirm: () => {
         const snap = { tasks: state.tasks, projects: state.projects };
@@ -2415,17 +2746,21 @@
   });
   el.umSyncNow.addEventListener('click', () => { syncNow(true); });
 
-  el.artsToggle.checked = root.dataset.arts !== 'off';
-  el.artsToggle.addEventListener('change', () => {
-    const on = el.artsToggle.checked;
-    root.dataset.arts = on ? 'on' : 'off';
-    try { localStorage.setItem(KEYS.arts, on ? 'on' : 'off'); } catch (e) { /* ignore */ }
-    toast(on ? 'Арты на фоне включены' : 'Арты на фоне скрыты', { duration: 2200 });
+  // анимации: «Вкл / Выкл»; ручной выбор важнее системной настройки
+  el.motionToggle.checked = !reducedMotion;
+  el.motionToggle.addEventListener('change', () => {
+    const on = el.motionToggle.checked;
+    root.dataset.motion = on ? 'on' : 'off';
+    reducedMotion = !on;
+    try { localStorage.setItem('evilsforge.motion', on ? 'on' : 'off'); } catch (e) { /* ignore */ }
   });
+  el.umKeys.addEventListener('click', () => openOverlay(el.keysOverlay, $('[data-close]', el.keysOverlay)));
 
   /* ---------- Старт ---------- */
   async function boot() {
     setActive(el.spaceSwitch, $(`.seg-btn[data-value="${state.space}"]`, el.spaceSwitch) || $('.seg-btn', el.spaceSwitch));
+    el.spaceLabel.textContent = SPACE_NAME[state.space] || SPACE_NAME.all;
+    $$('.menu-item', el.spaceMenu).forEach(b => b.setAttribute('aria-checked', String(b.dataset.value === state.space)));
     updateUserUi();
     setSync('local');
     const wantsLocal = readMode() === 'local';
@@ -2447,8 +2782,6 @@
     else if (wantsLocal) startLocal();
     else showAuth('login');
 
-    moveAllInd();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveAllInd);
   }
 
   function readMode() {
