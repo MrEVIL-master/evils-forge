@@ -188,6 +188,28 @@
     motionToggle: $('#motionToggle'),
 
     aiPlanBtn: $('#aiPlanBtn'),
+    specBtn: $('#specBtn'),
+    keyDot: $('#keyDot'),
+    dsOverlay: $('#dsOverlay'),
+    dsTitle: $('#dsTitle'),
+    dsKeyLabel: $('#dsKeyLabel'),
+    dsNoKey: $('#dsNoKey'),
+    dsNoKeyText: $('#dsNoKeyText'),
+    dsAddKey: $('#dsAddKey'),
+    dsForm: $('#dsForm'),
+    dsContext: $('#dsContext'),
+    dsRun: $('#dsRun'),
+    dsMsg: $('#dsMsg'),
+    dsSugg: $('#dsSugg'),
+    dsSuggList: $('#dsSuggList'),
+    dsFile: $('#dsFile'),
+    dsCopy: $('#dsCopy'),
+    dsDownload: $('#dsDownload'),
+    dsRawToggle: $('#dsRawToggle'),
+    dsDoc: $('#dsDoc'),
+    dsRaw: $('#dsRaw'),
+    dsMeta: $('#dsMeta'),
+    dsApply: $('#dsApply'),
     aiOverlay: $('#aiOverlay'),
     aiForm: $('#aiForm'),
     aiContext: $('#aiContext'),
@@ -390,7 +412,28 @@
       deadline: typeof p.deadline === 'number' ? p.deadline : null,
       color: PROJECT_COLORS.includes(p.color) ? p.color : PROJECT_COLORS[0],
       art: p.art === undefined ? (DEMO_ART[p.name] || '') : (ARTS.some(a => a.file === p.art) ? p.art : ''),
-      createdAt: p.createdAt || Date.now()
+      createdAt: p.createdAt || Date.now(),
+      spec: normalizeSpec(p.spec)
+    };
+  }
+
+  // AI-часть SPEC досье (пишет Gemini личным ключом); цифры SPEC трекер считает сам
+  function normalizeSpec(x) {
+    if (!x || typeof x !== 'object') return null;
+    const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+    const arr = (v, n, len) => (Array.isArray(v) ? v : []).map(a => str(a, len)).filter(Boolean).slice(0, n);
+    return {
+      goal: str(x.goal, 300),
+      focus: str(x.focus, 400),
+      doneCriteria: arr(x.doneCriteria, 6, 200),
+      order: (Array.isArray(x.order) ? x.order : []).filter(o => o && o.id).slice(0, 80).map(o => ({ id: String(o.id), reason: str(o.reason, 200) })),
+      missing: (Array.isArray(x.missing) ? x.missing : []).filter(m => m && m.title).slice(0, 5).map(m => ({
+        id: m.id || uid(), title: str(m.title, 120), why: str(m.why, 200), workType: WORK[m.workType] ? m.workType : null
+      })),
+      risks: arr(x.risks, 4, 200),
+      context: str(x.context, 400),
+      model: str(x.model, 60),
+      at: typeof x.at === 'number' ? x.at : 0
     };
   }
 
@@ -724,7 +767,7 @@
           <span class="dos-fandom">${escapeHtml(p.fandom || 'Ориджинал')} · ${pct}%</span>
           ${due ? `<span class="dos-due ${due.cls}">${escapeHtml(due.text)}</span>` : ''}
         </span>
-        ${preview ? '' : `<button type="button" class="icon-btn dos-edit" data-pact="edit" aria-label="Изменить досье «${escapeHtml(p.name)}»">${icon('edit')}</button>`}
+        ${preview ? '' : `<span class="dos-acts"><button type="button" class="icon-btn dos-edit" data-pact="spec" aria-label="SPEC досье «${escapeHtml(p.name)}»" title="SPEC досье">${icon('doc')}</button><button type="button" class="icon-btn dos-edit" data-pact="edit" aria-label="Изменить досье «${escapeHtml(p.name)}»" title="Изменить">${icon('edit')}</button></span>`}
         <span class="dos-bar" aria-hidden="true"></span>`;
   }
 
@@ -756,6 +799,7 @@
   function renderChips() {
     const p = state.space !== 'personal' && projectById(state.filter.project);
     el.projectChip.hidden = !p;
+    el.specBtn.hidden = !p;
     if (p) {
       el.projectChip.style.setProperty('--pc', p.color);
       el.projectChip.innerHTML = `<span class="pc"></span><span>${escapeHtml(p.name)}</span>${icon('close')}`;
@@ -816,6 +860,7 @@
     renderProjects();
     render(opts);
     renderPanelIfSafe();
+    if (el.dsOverlay.classList.contains('open')) renderDossierSpec();
   }
 
   /* ---------- Сегменты ---------- */
@@ -977,6 +1022,7 @@
     const item = e.target.closest('.dos[data-pid]');
     if (!item) return;
     if (act && act.dataset.pact === 'edit') { openProjectModal(projectById(item.dataset.pid)); return; }
+    if (act && act.dataset.pact === 'spec') { openDossierSpec(item.dataset.pid); return; }
     toggleProjectFilter(item.dataset.pid || null);
   });
   el.projectsTrack.addEventListener('keydown', e => {
@@ -1085,7 +1131,7 @@
             `<label class="seg-opt"><input type="radio" name="pfSpace" value="${v}" data-f="space" ${task.space === v ? 'checked' : ''}><span>${SPACE_NAME[v]}</span></label>`).join('')}</div></dd>
           ${ws ? `
           <dt><label for="pfProject">Персонаж</label></dt>
-          <dd><select class="select" id="pfProject" data-f="projectId">${projectOptions(task.projectId)}</select></dd>
+          <dd><select class="select" id="pfProject" data-f="projectId">${projectOptions(task.projectId)}</select>${proj ? `<button type="button" class="link-btn" data-pact="spec">${icon('doc')}<span>SPEC досье</span></button>` : ''}</dd>
           <dt><label for="pfWork">Тип работы</label></dt>
           <dd><select class="select" id="pfWork" data-f="workType">${workOptions(task.workType)}</select></dd>` : ''}
           <dt><label for="pfDeadline">Срок</label></dt>
@@ -1093,6 +1139,11 @@
           <dt>Приоритет</dt>
           <dd><div class="seg seg-form seg-prio" role="radiogroup" aria-label="Приоритет">${prio}</div></dd>
         </dl>
+        <section class="p-section p-done">
+          <h4><label for="pfDone">Готово, когда</label></h4>
+          <textarea class="input" id="pfDone" data-f="aiDone" rows="2" maxlength="200" placeholder="Проверяемый критерий: «кираса надета и держится 2 часа»">${escapeHtml(task.aiDone)}</textarea>
+          ${task.aiReason ? `<p class="p-why"><b>AI:</b> ${escapeHtml(task.aiReason)}</p>` : ''}
+        </section>
         <section class="p-section">
           <h4><label for="pfDesc">Описание</label></h4>
           <textarea class="input" id="pfDesc" data-f="description" rows="3" maxlength="600" placeholder="Детали, референсы, заметки…">${escapeHtml(task.description)}</textarea>
@@ -1190,6 +1241,7 @@
     const all = {
       title: (f('title').value.trim() || t.title).slice(0, 120),
       description: f('description').value.trim(),
+      aiDone: f('aiDone') ? f('aiDone').value.trim().slice(0, 200) : t.aiDone,
       space,
       projectId: ws ? (f('projectId') ? f('projectId').value || null : t.projectId) : null,
       workType: ws ? (f('workType') ? f('workType').value || null : t.workType) : null,
@@ -1266,7 +1318,7 @@
       schedulePanelSave(isMat ? 'materials' : 'subtasks');
       return;
     }
-    if (f === 'title' || f === 'description') schedulePanelSave(f);
+    if (f === 'title' || f === 'description' || f === 'aiDone') schedulePanelSave(f);
     if (f === 'deadline') { const o = $('[data-due-out]', el.panel); if (o) o.textContent = fmtStamp(fromInput(tgt.value)); }
   });
 
@@ -1351,6 +1403,7 @@
     const a = act.dataset.pact;
     if (a === 'close') { closePanel(); return; }
     if (!t) return;
+    if (a === 'spec') { flushPanel(); if (t.projectId) openDossierSpec(t.projectId); return; }
     if (a === 'add-sub') panelAddSub();
     else if (a === 'add-mat') {
       const m = { id: uid(), name: '', qty: 1, price: 0, bought: false };
@@ -1364,7 +1417,7 @@
   });
 
   /* ---------- Оверлеи ---------- */
-  const overlays = [el.confirmOverlay, el.keyOverlay, el.keysOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
+  const overlays = [el.confirmOverlay, el.keyOverlay, el.keysOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay, el.dsOverlay];
 
   function openOverlay(overlay, focusEl) {
     closeMenus();
@@ -2017,6 +2070,19 @@
     el.aiNoKey.hidden = store.mode !== 'cloud' || !aiKey.known || has;
     el.aiForm.classList.toggle('is-locked', store.mode === 'cloud' && aiKey.known && !has);
     el.aiKeyLabel.textContent = store.mode !== 'cloud' ? 'Gemini · нужен аккаунт' : has ? `Gemini · твой ключ ${aiKey.hint || ''}`.trim() : 'Gemini · ключ не добавлен';
+    // без ключа: точка на аватаре и пункт меню «Добавить ключ Gemini»
+    const missing = store.mode === 'cloud' && aiKey.known && !has;
+    el.keyDot.hidden = !missing;
+    el.userBtn.title = missing ? 'Аккаунт · добавь ключ Gemini для AI' : 'Аккаунт';
+    el.umAiKey.classList.toggle('is-warn', missing);
+    $('span', el.umAiKey).textContent = has ? 'AI-ключ Gemini' : 'Добавить ключ Gemini';
+    el.dsKeyLabel.textContent = el.aiKeyLabel.textContent;
+    el.dsNoKey.hidden = !(store.mode !== 'cloud' || missing);
+    el.dsNoKeyText.textContent = store.mode !== 'cloud'
+      ? 'AI-часть SPEC пишет Gemini на твоём личном ключе — для этого нужен аккаунт. Сроки, контракты и бюджет считаются и без него.'
+      : 'AI-часть SPEC пишет Gemini на твоём личном ключе. Добавь ключ — сроки, контракты и бюджет считаются и без него.';
+    $('span', el.dsAddKey).textContent = store.mode !== 'cloud' ? 'Войти' : 'Добавить ключ';
+    el.dsForm.classList.toggle('is-locked', store.mode !== 'cloud' || missing);
   }
 
   async function refreshKey() {
@@ -2076,6 +2142,11 @@
   });
   el.umAiKey.addEventListener('click', openKeyModal);
   el.aiAddKey.addEventListener('click', openKeyModal);
+  el.dsAddKey.addEventListener('click', () => {
+    if (store.mode === 'cloud') { openKeyModal(); return; }
+    closeOverlay(el.dsOverlay);
+    showAuth('login');
+  });
 
   /* ---------- Markdown → HTML (для SPEC: заголовки, списки, чекбоксы, таблицы, цитаты) ---------- */
   function mdInline(t) {
@@ -2341,6 +2412,254 @@
     toast(`Приоритеты применены: ${n} ${plural(n, ['контракт', 'контракта', 'контрактов'])}`, { type: 'success' });
   });
 
+  /* =========================================================
+     SPEC досье: живой документ по одному персонажу.
+     Сроки, контракты, этапы, материалы и бюджет трекер считает сам из данных;
+     цель, критерии «готово», порядок, недостающие контракты и риски пишет
+     Gemini на личном ключе пользователя (api/dossier-spec). Общего ключа нет.
+     ========================================================= */
+  const ds = { pid: null, busy: false };
+  const dsDate = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', year: 'numeric' });
+  const mdSafe = v => String(v || '').replace(/[\r\n]+/g, ' ').replace(/\|/g, '/').trim();
+  const shortDate = ms => fmtStamp(ms).split(' · ')[0];
+  const dossierTasks = p => state.tasks.filter(t => t.projectId === p.id);
+
+  // порядок открытых контрактов: сначала как предложил AI, новые — по сроку в конце
+  function dossierOrder(p, open) {
+    const byId = new Map(open.map(t => [t.id, t]));
+    const reasons = new Map();
+    const list = [];
+    (p.spec ? p.spec.order : []).forEach(o => {
+      const t = byId.get(o.id);
+      if (t && !reasons.has(o.id)) { reasons.set(o.id, o.reason); list.push(t); }
+    });
+    const rest = open.filter(t => !reasons.has(t.id)).sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity));
+    return { list: list.concat(rest), reasons, fresh: p.spec ? rest.length : 0 };
+  }
+
+  function buildDossierSpec(p) {
+    const tasks = dossierTasks(p);
+    const open = tasks.filter(t => t.status !== 'done');
+    const closed = tasks.filter(t => t.status === 'done');
+    const sp = p.spec;
+    const { list, reasons } = dossierOrder(p, open);
+    let n = 0;
+    const h = title => L.push(`## ${++n}. ${title}`, '');
+    const L = [];
+    L.push(`# SPEC · ${mdSafe(p.name)}`, '');
+    L.push(`> ${[p.fandom ? mdSafe(p.fandom) : '', `контрактов ${tasks.length}`, `закрыто ${closed.length}`, `прогресс ${Math.round(progressOf(tasks) * 100)}%`].filter(Boolean).join(' · ')}`, '');
+
+    h('Цель');
+    L.push(sp && sp.goal ? mdSafe(sp.goal)
+      : `Готовый костюм «${mdSafe(p.name)}»${p.convention ? ` к событию «${mdSafe(p.convention)}»` : ''}${p.deadline != null ? ` — ${dsDate.format(p.deadline)}` : ''}.`.replace(/\.\.$/, '.'), '');
+    if (sp && sp.focus) L.push(`**Фокус сейчас:** ${mdSafe(sp.focus)}`, '');
+
+    h('Готово, когда');
+    L.push(`- [${tasks.length && !open.length ? 'x' : ' '}] Все контракты закрыты — ${closed.length} из ${tasks.length}`);
+    (sp ? sp.doneCriteria : []).forEach(c => L.push(`- [ ] ${mdSafe(c)}`));
+    L.push('');
+
+    h('Сроки');
+    if (p.deadline != null) {
+      const days = Math.round((startOfDay(p.deadline) - startOfDay(Date.now())) / DAY);
+      const left = days > 0 ? `через ${days} ${plural(days, ['день', 'дня', 'дней'])}` : days === 0 ? 'сегодня' : `прошло ${-days} ${plural(-days, ['день', 'дня', 'дней'])}`;
+      L.push(`- Событие: ${p.convention ? `«${mdSafe(p.convention)}», ` : ''}${dsDate.format(p.deadline)} — ${left}`);
+    } else L.push('- Событие: дата не задана');
+    const next = open.filter(t => t.deadline != null).sort((a, b) => a.deadline - b.deadline)[0];
+    if (next) L.push(`- Ближайший срок: «${mdSafe(next.title)}» — ${fmtStamp(next.deadline)}`);
+    const over = open.filter(isOverdue).length;
+    L.push(`- Просрочено: ${over}`, '');
+
+    h('Порядок работы');
+    if (list.length) {
+      L.push('| # | Контракт | Приоритет | Срок | Этапы | Готово, когда |', '|---|---|---|---|---|---|');
+      list.forEach((t, i) => {
+        const why = reasons.get(t.id);
+        const steps = t.subtasks.length ? `${t.subtasks.filter(s => s.done).length}/${t.subtasks.length}` : '—';
+        L.push(`| ${i + 1} | **${mdSafe(t.title)}**${t.status === 'progress' ? ' · в работе' : ''}${why ? ` — ${mdSafe(why)}` : ''} | ${PRIORITY[t.priority].code} | ${t.deadline != null ? shortDate(t.deadline) + (isOverdue(t) ? ' ⚠' : '') : '—'} | ${steps} | ${mdSafe(t.aiDone) || '—'} |`);
+      });
+    } else L.push(tasks.length ? '- Все контракты закрыты.' : '- Контрактов пока нет.');
+    L.push('');
+    if (closed.length) { L.push('### Закрыто', ''); closed.forEach(t => L.push(`- [x] ${mdSafe(t.title)}`)); L.push(''); }
+
+    h('Материалы и бюджет');
+    const mats = tasks.flatMap(t => t.materials.map(m => ({ m, t })));
+    const planned = tasks.reduce((s, t) => s + taskPlanned(t), 0);
+    const spent = tasks.reduce((s, t) => s + taskSpent(t), 0);
+    L.push(`- Бюджет: потрачено ${money(spent)} ₽ из ${money(planned)} ₽`);
+    const toBuy = mats.filter(x => !x.m.bought);
+    if (toBuy.length) {
+      L.push(`- Осталось купить: ${toBuy.length} ${plural(toBuy.length, ['позиция', 'позиции', 'позиций'])} на ${money(toBuy.reduce((s, x) => s + x.m.qty * x.m.price, 0))} ₽`, '');
+      toBuy.forEach(x => L.push(`- [ ] ${mdSafe(x.m.name)} × ${x.m.qty} — ${money(x.m.qty * x.m.price)} ₽ · ${mdSafe(x.t.title)}`));
+    } else L.push(mats.length ? '- Всё куплено' : '- Материалы не добавлены');
+    L.push('');
+
+    if (sp && sp.missing.length) {
+      h('Не хватает контрактов');
+      sp.missing.forEach(m => L.push(`- [ ] **${mdSafe(m.title)}** — ${mdSafe(m.why)}`));
+      L.push('');
+    }
+
+    h('Риски');
+    const risks = (sp ? sp.risks : []).map(mdSafe);
+    if (over) risks.unshift(`Просрочено контрактов: ${over}`);
+    if (risks.length) risks.forEach(r => L.push(`- ${r}`));
+    else L.push(sp ? '- Не выявлено' : '- Риски оценит AI');
+    L.push('');
+
+    L.push(sp && sp.at
+      ? `> AI-часть: Gemini${sp.model ? ` (${mdSafe(sp.model)})` : ''}, ${relative(sp.at)}${sp.context ? ` · условия: ${mdSafe(sp.context)}` : ''}. Сроки, контракты и бюджет — из трекера, обновляются сами.`
+      : '> AI-часть ещё не составлена. Сроки, контракты и бюджет — из трекера, обновляются сами.');
+    return L.join('\n');
+  }
+
+  const dsFileName = p => `SPEC-${(p.name || 'dossier').trim().replace(/[\\/:*?"<>|\s]+/g, '-').slice(0, 40)}.md`;
+  const dsPending = p => dossierTasks(p).filter(t => t.status !== 'done' && t.aiPriority && t.aiPriority !== t.priority);
+
+  function renderDossierSpec() {
+    const p = projectById(ds.pid);
+    if (!p) { closeOverlay(el.dsOverlay); return; }
+    const md = buildDossierSpec(p);
+    el.dsTitle.textContent = `SPEC · ${p.name}`;
+    el.dsFile.textContent = dsFileName(p);
+    el.dsDoc.innerHTML = renderMarkdown(md);
+    el.dsRaw.textContent = md;
+    const sugg = p.spec ? p.spec.missing : [];
+    el.dsSugg.hidden = !sugg.length;
+    el.dsSuggList.innerHTML = sugg.map(m => `
+      <li data-mid="${m.id}">
+        <span class="ds-s-body"><b>${escapeHtml(m.title)}</b>${m.why ? `<small>${escapeHtml(m.why)}</small>` : ''}</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-ds="add">${icon('plus')}<span>В контракты</span></button>
+        <button type="button" class="icon-btn" data-ds="skip" aria-label="Убрать предложение «${escapeHtml(m.title)}»" title="Не нужно">${icon('close')}</button>
+      </li>`).join('');
+    const pend = dsPending(p).length;
+    el.dsApply.disabled = !pend;
+    $('span', el.dsApply).textContent = pend ? `Применить приоритеты (${pend})` : 'Приоритеты совпадают';
+    const fresh = dossierOrder(p, dossierTasks(p).filter(t => t.status !== 'done')).fresh;
+    el.dsMeta.textContent = p.spec && p.spec.at
+      ? ['AI-часть: ' + relative(p.spec.at), fresh ? `${fresh} ${plural(fresh, ['новый контракт', 'новых контракта', 'новых контрактов'])} без AI` : ''].filter(Boolean).join(' · ')
+      : 'AI-часть не составлена';
+    $('span', el.dsRun).textContent = p.spec && p.spec.at ? 'Обновить с AI' : 'Составить с AI';
+    renderKeyUi();
+  }
+
+  function openDossierSpec(pid) {
+    const p = projectById(pid);
+    if (!p) return;
+    ds.pid = p.id;
+    el.dsContext.value = (p.spec && p.spec.context) || '';
+    aiMessage(el.dsMsg, '');
+    el.dsRaw.hidden = true;
+    el.dsDoc.hidden = false;
+    el.dsRawToggle.setAttribute('aria-pressed', 'false');
+    $('span', el.dsRawToggle).textContent = 'Исходник';
+    renderDossierSpec();
+    if (!el.dsOverlay.classList.contains('open')) openOverlay(el.dsOverlay, store.mode === 'cloud' ? el.dsContext : el.dsCopy);
+    if (store.mode === 'cloud') refreshKey();
+  }
+
+  async function runDossierSpec() {
+    const p = projectById(ds.pid);
+    if (!p || ds.busy) return;
+    const tasks = dossierTasks(p);
+    if (!tasks.length) { aiMessage(el.dsMsg, 'В досье нет контрактов — добавь хотя бы один, и AI разберёт персонажа.', 'warn'); return; }
+    if (store.mode !== 'cloud') { aiMessage(el.dsMsg, AI_ERRORS.unauthorized, 'warn'); return; }
+    if (aiKey.known && !aiKey.hasKey) { aiMessage(el.dsMsg, AI_ERRORS.no_user_key, 'warn'); openKeyModal(); return; }
+
+    const context = el.dsContext.value.trim();
+    ds.busy = true;
+    el.dsRun.disabled = true;
+    el.dsOverlay.classList.add('ai-busy');
+    $('span', el.dsRun).textContent = 'Думаю…';
+    aiMessage(el.dsMsg, 'Gemini разбирает досье и пишет SPEC…');
+    const iso = ms => (ms == null ? null : toLocalInput(ms));
+    const payload = tasks.slice(0, 80).map(t => ({
+      id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
+      deadline: iso(t.deadline), overdue: isOverdue(t), workType: t.workType ? WORK[t.workType].label : null,
+      steps: t.subtasks.map(s => (s.done ? '✓ ' : '') + s.text), stepsDone: t.subtasks.filter(s => s.done).length,
+      toBuy: t.materials.filter(m => !m.bought).map(m => m.name)
+    }));
+    try {
+      const res = await api('dossier-spec', { method: 'POST', body: {
+        project: { name: p.name, fandom: p.fandom, convention: p.convention, conventionDate: iso(p.deadline) },
+        tasks: payload, context, now: toLocalInput(Date.now())
+      } });
+      const live = projectById(p.id);
+      if (!live) return;
+      live.spec = normalizeSpec({
+        goal: res.goal, focus: res.focus, doneCriteria: res.doneCriteria, risks: res.risks, missing: res.missing,
+        order: res.order.map(o => ({ id: o.id, reason: o.reason })), context, model: res.model, at: Date.now()
+      });
+      res.order.forEach(o => {
+        const t = state.tasks.find(x => x.id === o.id);
+        if (!t) return;
+        t.aiPriority = o.priority;
+        t.aiReason = o.reason || '';
+        if (o.doneWhen && !t.aiDone) t.aiDone = o.doneWhen; // свой критерий пользователя не затираем
+      });
+      save();
+      aiMessage(el.dsMsg, '');
+      renderAll();
+      renderDossierSpec();
+      toast('SPEC досье обновлён', { type: 'success', duration: 2200 });
+    } catch (err) {
+      if (err.status === 401 && cloud.user) { closeOverlay(el.dsOverlay); sessionLost(); return; }
+      if (err.message === 'no_user_key') { Object.assign(aiKey, { known: true, hasKey: false }); renderKeyUi(); }
+      aiMessage(el.dsMsg, AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось составить SPEC. Попробуй ещё раз.'), 'danger');
+    } finally {
+      ds.busy = false;
+      el.dsRun.disabled = false;
+      el.dsOverlay.classList.remove('ai-busy');
+      const live = projectById(ds.pid);
+      $('span', el.dsRun).textContent = live && live.spec && live.spec.at ? 'Обновить с AI' : 'Составить с AI';
+    }
+  }
+
+  el.specBtn.addEventListener('click', () => { if (state.filter.project) openDossierSpec(state.filter.project); });
+  el.dsForm.addEventListener('submit', e => { e.preventDefault(); runDossierSpec(); });
+  el.dsSuggList.addEventListener('click', e => {
+    const btn = e.target.closest('[data-ds]');
+    const li = btn && btn.closest('li[data-mid]');
+    const p = projectById(ds.pid);
+    if (!li || !p || !p.spec) return;
+    const i = p.spec.missing.findIndex(m => m.id === li.dataset.mid);
+    if (i === -1) return;
+    const [m] = p.spec.missing.splice(i, 1);
+    if (btn.dataset.ds === 'add') {
+      const t = createTask({ title: m.title, description: m.why, space: 'workshop', projectId: p.id, workType: m.workType, priority: 'medium', status: 'todo' });
+      renderAll({ flashId: t.id });
+      toast(`Контракт добавлен: «${m.title}»`, { type: 'success', duration: 2600 });
+    } else save();
+    renderDossierSpec();
+  });
+  el.dsApply.addEventListener('click', () => {
+    const p = projectById(ds.pid);
+    if (!p) return;
+    const n = dsPending(p).filter(applyAiPriority).length;
+    if (!n) return;
+    renderAll();
+    toast(`Приоритеты применены: ${n} ${plural(n, ['контракт', 'контракта', 'контрактов'])}`, { type: 'success' });
+  });
+  el.dsCopy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(el.dsRaw.textContent); toast('SPEC скопирован', { type: 'success', duration: 2200 }); }
+    catch (e) { toast('Не удалось скопировать', { type: 'danger' }); }
+  });
+  el.dsDownload.addEventListener('click', () => {
+    const p = projectById(ds.pid);
+    if (!p) return;
+    const url = URL.createObjectURL(new Blob([el.dsRaw.textContent], { type: 'text/markdown;charset=utf-8' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: dsFileName(p) });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  el.dsRawToggle.addEventListener('click', () => {
+    const raw = el.dsRaw.hidden;
+    el.dsRaw.hidden = !raw;
+    el.dsDoc.hidden = raw;
+    el.dsRawToggle.setAttribute('aria-pressed', String(raw));
+    $('span', el.dsRawToggle).textContent = raw ? 'Документ' : 'Исходник';
+  });
+
   /* ---------- Горячие клавиши ---------- */
   document.addEventListener('keydown', e => {
     if (!el.auth.hidden) return;
@@ -2365,6 +2684,7 @@
     if (e.code === 'KeyN') { e.preventDefault(); openTaskModal(null); }
     if (e.code === 'KeyP') { e.preventDefault(); openProjectModal(null); }
     if (e.code === 'KeyA') { e.preventDefault(); openAiPlan(); }
+    if (e.code === 'KeyS' && state.filter.project && state.space !== 'personal') { e.preventDefault(); openDossierSpec(state.filter.project); }
     if (e.key === '/' || e.code === 'Slash') {
       e.preventDefault();
       if (isPhone()) el.hud.classList.add('search-open');

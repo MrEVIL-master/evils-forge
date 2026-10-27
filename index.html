@@ -17,7 +17,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preload" href="assets/fonts/tektur-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/ibm-plex-sans-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
   <script>
     // Пространство и режим анимаций ставятся до первой отрисовки, чтобы ничего не мелькнуло
     (function () {
@@ -133,6 +133,7 @@
           <button id="userBtn" class="user-btn" type="button" aria-haspopup="menu" aria-expanded="false" title="Аккаунт">
             <span class="avatar" id="userAvatar">?</span>
             <span class="sync-dot" id="syncDot" data-status="local"></span>
+            <span class="key-dot" id="keyDot" hidden></span>
           </button>
           <div class="menu user-menu" id="userMenu" role="menu" hidden>
             <div class="um-head">
@@ -228,6 +229,9 @@
               </label>
             </div>
           </div>
+          <button type="button" class="btn btn-ghost btn-sm spec-btn" id="specBtn" title="SPEC досье (S)" hidden>
+            <svg class="ico"><use href="#i-doc"/></svg><span>SPEC</span>
+          </button>
           <button type="button" class="btn btn-ghost btn-sm ai-btn" id="aiPlanBtn" title="AI-план (A)">
             <svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span>
           </button>
@@ -453,6 +457,57 @@
     </section>
   </div>
 
+  <!-- ===== SPEC досье ===== -->
+  <div class="overlay" id="dsOverlay" aria-hidden="true">
+    <section class="modal modal-lg sheet-full ai-modal ds-modal" role="dialog" aria-modal="true" aria-labelledby="dsTitle">
+      <header class="modal-head">
+        <button type="button" class="icon-btn m-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-back"/></svg></button>
+        <div class="ai-headline">
+          <h3 id="dsTitle">SPEC досье</h3>
+          <span class="mono-label" id="dsKeyLabel">Gemini · твой ключ</span>
+        </div>
+        <button type="button" class="icon-btn d-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+
+      <div class="modal-body">
+        <div class="ai-nokey" id="dsNoKey" hidden>
+          <svg class="ico"><use href="#i-key"/></svg>
+          <p id="dsNoKeyText">AI-часть SPEC пишет Gemini на твоём личном ключе. Добавь ключ — сроки, контракты и бюджет считаются и без него.</p>
+          <button type="button" class="btn btn-primary btn-sm" id="dsAddKey"><span>Добавить ключ</span></button>
+        </div>
+
+        <form class="ai-ask" id="dsForm">
+          <input id="dsContext" class="input" type="text" maxlength="400" autocomplete="off" placeholder="Условия: «бюджет до 8000», «парик уже есть», «фотосет раньше конвента»">
+          <button type="submit" class="btn btn-primary" id="dsRun"><svg class="ico"><use href="#i-spark"/></svg><span>Составить с AI</span></button>
+        </form>
+        <div class="ai-progress" aria-hidden="true"><span></span></div>
+        <p class="msg" id="dsMsg" role="status"></p>
+
+        <div class="ds-sugg" id="dsSugg" hidden>
+          <h4 class="mono-label">Не хватает контрактов</h4>
+          <ul id="dsSuggList"></ul>
+        </div>
+
+        <div class="spec-bar">
+          <span class="spec-file"><svg class="ico"><use href="#i-doc"/></svg><span id="dsFile">SPEC.md</span></span>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-text btn-sm" id="dsCopy"><svg class="ico"><use href="#i-copy"/></svg><span>Копировать</span></button>
+          <button type="button" class="btn btn-text btn-sm" id="dsDownload"><svg class="ico"><use href="#i-download"/></svg><span>Скачать</span></button>
+          <button type="button" class="btn btn-text btn-sm" id="dsRawToggle" aria-pressed="false"><svg class="ico"><use href="#i-edit"/></svg><span>Исходник</span></button>
+        </div>
+        <article class="spec-doc" id="dsDoc"></article>
+        <pre class="spec-raw" id="dsRaw" hidden></pre>
+      </div>
+
+      <footer class="modal-foot">
+        <span class="ai-meta mono" id="dsMeta"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost d-only" data-close><span>Закрыть</span></button>
+        <button type="button" class="btn btn-primary" id="dsApply" disabled><svg class="ico"><use href="#i-check"/></svg><span>Применить приоритеты</span></button>
+      </footer>
+    </section>
+  </div>
+
   <!-- ===== Личный ключ Gemini ===== -->
   <div class="overlay" id="keyOverlay" aria-hidden="true">
     <form class="modal modal-sm key-modal" id="keyForm" role="dialog" aria-modal="true" aria-labelledby="keyTitle" novalidate>
@@ -503,6 +558,7 @@
           <dt><kbd>N</kbd></dt><dd>Новый контракт</dd>
           <dt><kbd>P</kbd></dt><dd>Новое досье</dd>
           <dt><kbd>A</kbd></dt><dd>AI-план</dd>
+          <dt><kbd>S</kbd></dt><dd>SPEC досье (когда выбран персонаж)</dd>
           <dt><kbd>/</kbd></dt><dd>Поиск</dd>
           <dt><kbd>Enter</kbd></dt><dd>Открыть выбранный контракт</dd>
           <dt><kbd>Delete</kbd></dt><dd>Удалить выбранный контракт</dd>
@@ -585,6 +641,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="script.js?v=20"></script>
+  <script src="script.js?v=21"></script>
 </body>
 </html>
