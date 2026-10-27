@@ -1127,7 +1127,20 @@ html[data-space="personal"] .ws-only { display: none !important; }
   .toolbar .spacer { display: none; }
   body.has-menu-scrim .hud, body.has-menu-scrim .toolbar { z-index: 66; }
   .seg-status { flex: 1; min-width: 0; }
-  .seg-status .seg-btn { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 4px; flex-direction: column; gap: 2px; font-size: 11px; }
+  .seg-status .seg-btn { flex: 1 1 0; min-width: 0; height: 48px; padding: 0 4px; flex-direction: column; gap: 2px; font-size: 12px; }
+  /* всё, что нажимают пальцем, — не меньше 44×44; поля — 16 px, чтобы iPhone не увеличивал страницу */
+  .hud-brand { min-height: 44px; min-width: 44px; justify-content: center; }
+  .seg-btn, .seg-opt > span, .kv .seg-form .seg-opt > span { height: 44px; }
+  .auth-card .seg-full .seg-btn { height: 44px; }
+  .pass-eye { width: 44px; height: 44px; top: 0; right: 0; }
+  .btn-sm { height: 44px; }
+  .input, .select, .kv .input, .kv .select, input[type="date"].input, input[type="datetime-local"].input, .kv input[type="datetime-local"].input { height: 48px; font-size: 16px; }
+  textarea.input { height: auto; }
+  .add-row .input { height: 44px; font-size: 16px; }
+  .editor-list li > input[type="text"] { font-size: 16px; height: 44px; }
+  .mat-list li > input[type="number"] { height: 40px; font-size: 16px; }
+  .panel-title { min-height: 44px; }
+  .seg-full .seg-opt > span { padding: 0 4px; font-size: 12px; }
   .seg-status .seg-btn .cnt { font-size: 12px; }
   .toolbar .chip-filter { order: 5; }
   .ai-btn { display: none; }
