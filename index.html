@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Russo+One&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
   <script>
     // Тема и пространство ставятся до первой отрисовки, чтобы не было вспышки
     (function () {
@@ -54,6 +54,7 @@
       <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h5v16h-5"/><path d="M10 8l-4 4 4 4M6 12h10"/></symbol>
       <symbol id="i-sync" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 21v-5h-5"/></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7Z"/><path d="M19 15.5c.3 1.6 1 2.3 2.5 2.5-1.5.2-2.2.9-2.5 2.5-.3-1.6-1-2.3-2.5-2.5 1.5-.2 2.2-.9 2.5-2.5Z"/></symbol>
       <symbol id="i-flame"viewBox="0 0 24 24"><path d="M12 21c-4 0-7-2.7-7-6.5 0-4 3.5-5.5 4-10 3 2 3.5 4.5 3.5 6 1-1 1.5-2.5 1.5-3.5 2.5 2 5 4.5 5 7.5 0 3.8-3 6.5-7 6.5Z"/></symbol>
     </defs>
   </svg>
@@ -213,6 +214,10 @@
 
       <button type="button" class="filter-chip" id="projectChip" hidden></button>
 
+      <button type="button" class="btn btn-ai btn-sm" id="aiPlanBtn" title="Список дел с AI-приоритетами (A)">
+        <svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span>
+      </button>
+
       <div class="toolbar-right">
         <label class="field-inline ws-only">
           <span>Работа</span>
@@ -234,6 +239,7 @@
             <option value="deadline">По дедлайну</option>
             <option value="priority">По приоритету</option>
             <option value="created">Сначала новые</option>
+            <option value="ai">AI-порядок</option>
           </select>
         </label>
       </div>
@@ -270,6 +276,7 @@
     <footer class="foot">
       <span><kbd>N</kbd> новая задача</span>
       <span><kbd>P</kbd> новый проект</span>
+      <span><kbd>A</kbd> AI-план</span>
       <span><kbd>/</kbd> поиск</span>
       <span><kbd>Esc</kbd> закрыть</span>
     </footer>
@@ -416,6 +423,35 @@
     </form>
   </div>
 
+  <!-- ===== ToDo · AI-план ===== -->
+  <div class="overlay" id="aiOverlay" aria-hidden="true">
+    <section class="modal modal-lg glass ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+      <header class="modal-head">
+        <h3 id="aiTitle">ToDo <em>AI-план</em></h3>
+        <button type="button" class="icon-btn" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+
+      <p class="panel-hint">Gemini выстроит открытые задачи текущего пространства в список дел: что делать первым, какой приоритет поставить и почему.</p>
+
+      <form class="ai-ask" id="aiForm">
+        <input id="aiContext" type="text" maxlength="400" autocomplete="off" placeholder="Пожелания: «фестиваль 15 ноября», «сегодня только 3 часа», «сначала заказы»…">
+        <button type="submit" class="btn btn-primary" id="aiRun"><svg class="ico"><use href="#i-spark"/></svg><span>Расставить</span></button>
+      </form>
+
+      <div class="ai-focus" id="aiFocus" hidden><b>Фокус на сегодня</b><span id="aiFocusText"></span></div>
+      <p class="ai-msg" id="aiMsg" role="status"></p>
+
+      <ol class="ai-list" id="aiList"></ol>
+
+      <footer class="modal-foot">
+        <span class="ai-meta" id="aiMeta"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" data-close><span>Закрыть</span></button>
+        <button type="button" class="btn btn-primary" id="aiApplyAll" disabled><svg class="ico"><use href="#i-check"/></svg><span>Применить приоритеты</span></button>
+      </footer>
+    </section>
+  </div>
+
   <!-- ===== Подтверждение ===== -->
   <div class="overlay" id="confirmOverlay" aria-hidden="true">
     <div class="modal modal-sm glass" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -478,6 +514,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
 </body>
 </html>

@@ -23,6 +23,7 @@
     space: 'evilsforge.space',
     arts: 'evilsforge.arts',
     mode: 'evilsforge.mode',
+    ai: 'evilsforge.ai',
     userCache: id => `evilsforge.u.${id}`
   };
 
@@ -163,6 +164,18 @@
     umLogout: $('#umLogout'),
     umReset: $('#umReset'),
     artsToggle: $('#artsToggle'),
+
+    aiPlanBtn: $('#aiPlanBtn'),
+    aiOverlay: $('#aiOverlay'),
+    aiForm: $('#aiForm'),
+    aiContext: $('#aiContext'),
+    aiRun: $('#aiRun'),
+    aiFocus: $('#aiFocus'),
+    aiFocusText: $('#aiFocusText'),
+    aiMsg: $('#aiMsg'),
+    aiList: $('#aiList'),
+    aiMeta: $('#aiMeta'),
+    aiApplyAll: $('#aiApplyAll'),
 
     confirmOverlay: $('#confirmOverlay'),
     confirmTitle: $('#confirmTitle'),
@@ -318,7 +331,11 @@
       subtasks: Array.isArray(t.subtasks) ? t.subtasks.map(s => ({ id: s.id || uid(), text: String(s.text || ''), done: !!s.done })) : [],
       materials: Array.isArray(t.materials) ? t.materials.map(m => ({
         id: m.id || uid(), name: String(m.name || ''), qty: num(m.qty, 1), price: num(m.price, 0), bought: !!m.bought
-      })) : []
+      })) : [],
+      // AI-план: место в списке дел, предложенный приоритет и причина
+      aiRank: typeof t.aiRank === 'number' ? t.aiRank : null,
+      aiPriority: PRIORITY[t.aiPriority] ? t.aiPriority : null,
+      aiReason: typeof t.aiReason === 'string' ? t.aiReason.slice(0, 200) : ''
     };
   }
 
@@ -431,6 +448,7 @@
     list.sort((a, b) => {
       if (sort === 'priority') return byPriority(a, b) || byDeadline(a, b);
       if (sort === 'created') return b.createdAt - a.createdAt;
+      if (sort === 'ai') return (a.aiRank ?? Infinity) - (b.aiRank ?? Infinity) || byPriority(a, b) || byDeadline(a, b);
       return byDeadline(a, b) || byPriority(a, b);
     });
     return list;
@@ -571,6 +589,8 @@
         ${subsHtml(t)}
         <div class="task-meta">
           <span class="badge"><span>${PRIORITY[t.priority].label}</span></span>
+          ${state.filter.sort === 'ai' && t.aiRank != null && t.status !== 'done'
+            ? `<span class="ai-rank" title="${escapeHtml(t.aiReason || 'Место в AI-плане')}">${icon('spark')}#${t.aiRank + 1}</span>` : ''}
           ${dueHtml(t)}
           ${moneyHtml}
         </div>
@@ -853,7 +873,7 @@
   el.addProjectBtn.addEventListener('click', () => openProjectModal(null));
 
   /* ---------- Оверлеи ---------- */
-  const overlays = [el.confirmOverlay, el.projectOverlay, el.taskOverlay];
+  const overlays = [el.confirmOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay];
 
   function openOverlay(overlay, focusEl) {
     state.lastFocus.push(document.activeElement);
@@ -1583,6 +1603,180 @@
     });
   }, { passive: true });
 
+  /* =========================================================
+     ToDo · AI-план: приоритезация задач через Gemini (api/prioritize)
+     ========================================================= */
+  const AI_ERRORS = {
+    unauthorized: 'AI-план работает в аккаунте: войди или зарегистрируйся (меню справа сверху).',
+    ai_not_configured: 'На сервере не задан ключ Gemini: добавь GEMINI_API_KEY в Vercel → Settings → Environment Variables и сделай Redeploy.',
+    ai_rate_limited: 'Gemini просит паузу: лимит запросов. Попробуй через минуту.',
+    no_tasks: 'Нет открытых задач для плана.'
+  };
+  const ai = Object.assign({ focus: '', at: 0, context: '', model: '' }, readJSON(KEYS.ai) || {});
+  let aiBusy = false;
+
+  const aiOpenTasks = () => scopeTasks().filter(t => t.status !== 'done');
+  const aiPlanned = () => aiOpenTasks().filter(t => t.aiRank != null).sort((a, b) => a.aiRank - b.aiRank);
+
+  function aiMessage(text, type = 'info') {
+    el.aiMsg.textContent = text || '';
+    el.aiMsg.dataset.type = type;
+  }
+
+  function aiItemHtml(t, i) {
+    const proj = projectById(t.projectId);
+    const work = t.workType && WORK[t.workType];
+    const sug = t.aiPriority && t.aiPriority !== t.priority ? t.aiPriority : null;
+    const tags = [
+      proj ? `<span class="tag tag-project" style="--tc:${proj.color};color:${inkOn(proj.color)}"><span>${escapeHtml(proj.name)}</span></span>` : '',
+      work ? `<span class="tag" style="--tc:${work.color}">${icon(work.icon)}${work.label}</span>` : '',
+      t.status === 'progress' ? `<span class="tag" style="--tc:var(--magenta)">${icon('armor')}В работе</span>` : ''
+    ].join('');
+    return `
+      <li class="ai-item" data-id="${t.id}" style="--i:${i}">
+        <span class="ai-num">${i + 1}</span>
+        <button class="check" type="button" data-ai="done" aria-label="Отметить выполненной">${icon('check')}</button>
+        <div class="ai-body">
+          <h4 class="ai-title">${escapeHtml(t.title)}</h4>
+          ${tags ? `<div class="task-tags">${tags}</div>` : ''}
+          ${t.aiReason ? `<p class="ai-reason">${icon('spark')}<span>${escapeHtml(t.aiReason)}</span></p>` : ''}
+          <div class="task-meta ai-meta-row">
+            <span class="badge" data-p="${t.priority}"><span>${PRIORITY[t.priority].label}</span></span>
+            ${sug ? `<span class="ai-arrow">→</span><span class="badge" data-p="${sug}"><span>${PRIORITY[sug].label}</span></span>
+              <button type="button" class="ai-apply" data-ai="apply">применить</button>` : ''}
+            ${dueHtml(t)}
+          </div>
+        </div>
+        <button class="mini-btn" type="button" data-ai="edit" aria-label="Редактировать" title="Редактировать">${icon('edit')}</button>
+      </li>`;
+  }
+
+  function renderAiPlan() {
+    const list = aiPlanned();
+    const open = aiOpenTasks();
+    const fresh = open.filter(t => t.aiRank == null).length;
+    el.aiFocus.hidden = !ai.focus || !list.length;
+    el.aiFocusText.textContent = ai.focus;
+    el.aiList.innerHTML = list.length
+      ? list.map(aiItemHtml).join('')
+      : `<li class="empty"><span class="empty-kanji">策</span><span>${open.length ? 'Плана ещё нет — нажми «Расставить»' : 'Открытых задач нет — всё выковано'}</span></li>`;
+    const pending = list.filter(t => t.aiPriority && t.aiPriority !== t.priority).length;
+    el.aiApplyAll.disabled = !pending;
+    $('span', el.aiApplyAll).textContent = pending ? `Применить приоритеты (${pending})` : 'Приоритеты совпадают';
+    const parts = [];
+    if (ai.at && list.length) parts.push('план от ' + relative(ai.at));
+    if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новая задача', 'новые задачи', 'новых задач'])} не в плане`);
+    el.aiMeta.textContent = parts.join(' · ');
+    $('span', el.aiRun).textContent = list.length ? 'Пересчитать' : 'Расставить';
+  }
+
+  function openAiPlan() {
+    el.aiContext.value = ai.context || '';
+    aiMessage(store.mode === 'cloud' ? '' : AI_ERRORS.unauthorized, store.mode === 'cloud' ? 'info' : 'warn');
+    renderAiPlan();
+    openOverlay(el.aiOverlay, aiPlanned().length ? el.aiApplyAll : el.aiContext);
+  }
+
+  async function runAiPlan() {
+    if (aiBusy) return;
+    const open = aiOpenTasks();
+    if (!open.length) { aiMessage(AI_ERRORS.no_tasks, 'warn'); return; }
+    if (store.mode !== 'cloud') { aiMessage(AI_ERRORS.unauthorized, 'warn'); return; }
+    if (open.length > 120) aiMessage('Задач больше 120 — в план попадут первые 120 по дедлайну.', 'warn');
+
+    ai.context = el.aiContext.value.trim();
+    aiBusy = true;
+    el.aiRun.disabled = true;
+    el.aiOverlay.classList.add('ai-busy');
+    $('span', el.aiRun).textContent = 'Думаю…';
+    if (open.length <= 120) aiMessage('Gemini раскладывает задачи…');
+
+    const sorted = open.slice().sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity)).slice(0, 120);
+    const iso = ms => (ms == null ? null : toLocalInput(ms));
+    const payload = sorted.map(t => {
+      const p = projectById(t.projectId);
+      return {
+        id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
+        deadline: iso(t.deadline), overdue: isOverdue(t), space: t.space,
+        workType: t.workType ? WORK[t.workType].label : null,
+        project: p ? p.name : null, convention: p ? p.convention : null, conventionDate: p ? iso(p.deadline) : null,
+        stepsDone: t.subtasks.filter(s => s.done).length, stepsTotal: t.subtasks.length,
+        materialsToBuy: t.materials.filter(m => !m.bought).length
+      };
+    });
+
+    try {
+      const res = await api('prioritize', { method: 'POST', body: { tasks: payload, context: ai.context, now: toLocalInput(Date.now()) } });
+      const ids = new Set(sorted.map(t => t.id));
+      state.tasks.forEach(t => { if (ids.has(t.id)) { t.aiRank = null; t.aiPriority = null; t.aiReason = ''; } });
+      res.items.forEach((it, i) => {
+        const t = state.tasks.find(x => x.id === it.id);
+        if (t) { t.aiRank = i; t.aiPriority = it.priority; t.aiReason = it.reason || ''; }
+      });
+      Object.assign(ai, { focus: res.focus || '', at: Date.now(), model: res.model || '' });
+      writeJSON(KEYS.ai, ai);
+      save();
+      aiMessage('');
+      state.filter.sort = 'ai';
+      el.sortSelect.value = 'ai';
+      render();
+      renderAiPlan();
+      if (!reducedMotion) {
+        $$('.ai-item', el.aiList).forEach((node, i) => node.animate(
+          [{ opacity: 0, transform: 'translateX(-16px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+          { duration: 480, delay: Math.min(i, 14) * 50, easing: EASE, fill: 'backwards' }));
+      }
+    } catch (err) {
+      if (err.status === 401 && cloud.user) { closeOverlay(el.aiOverlay); sessionLost(); }
+      aiMessage(AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось построить план. Попробуй ещё раз.'), 'danger');
+    } finally {
+      aiBusy = false;
+      el.aiRun.disabled = false;
+      el.aiOverlay.classList.remove('ai-busy');
+      $('span', el.aiRun).textContent = aiPlanned().length ? 'Пересчитать' : 'Расставить';
+    }
+  }
+
+  function applyAiPriority(task) {
+    if (!task.aiPriority || task.aiPriority === task.priority) return false;
+    updateTask(task.id, { priority: task.aiPriority });
+    return true;
+  }
+
+  el.aiPlanBtn.addEventListener('click', openAiPlan);
+  el.aiForm.addEventListener('submit', e => { e.preventDefault(); runAiPlan(); });
+  el.aiOverlay.addEventListener('click', e => {
+    if (e.target === el.aiOverlay || e.target.closest('[data-close]')) { closeOverlay(el.aiOverlay); return; }
+    const btn = e.target.closest('[data-ai]');
+    if (!btn) return;
+    const item = btn.closest('.ai-item');
+    const task = item && state.tasks.find(t => t.id === item.dataset.id);
+    if (!task) return;
+    const act = btn.dataset.ai;
+    if (act === 'apply') {
+      applyAiPriority(task);
+      render();
+      renderAiPlan();
+      toast(`Приоритет: ${PRIORITY[task.priority].label}`, { type: 'success', duration: 2200 });
+    } else if (act === 'done') {
+      item.classList.add('is-done');
+      setTimeout(() => {
+        completeTask(task, null);
+        renderAiPlan();
+      }, reducedMotion ? 0 : 300);
+    } else if (act === 'edit') {
+      closeOverlay(el.aiOverlay);
+      openTaskModal(task);
+    }
+  });
+  el.aiApplyAll.addEventListener('click', () => {
+    const n = aiPlanned().filter(applyAiPriority).length;
+    if (!n) return;
+    render();
+    renderAiPlan();
+    toast(`AI-приоритеты применены: ${n} ${plural(n, ['задача', 'задачи', 'задач'])}`, { type: 'success' });
+  });
+
   /* ---------- Горячие клавиши ---------- */
   document.addEventListener('keydown', e => {
     if (!el.auth.hidden) return;
@@ -1597,6 +1791,7 @@
     if (typing || anyOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.code === 'KeyN') { e.preventDefault(); openTaskModal(null); }
     if (e.code === 'KeyP') { e.preventDefault(); openProjectModal(null); }
+    if (e.code === 'KeyA') { e.preventDefault(); openAiPlan(); }
     if (e.key === '/' || e.code === 'Slash') { e.preventDefault(); el.search.focus(); }
   });
 
