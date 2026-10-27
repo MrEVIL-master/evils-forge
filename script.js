@@ -3055,7 +3055,12 @@
       cloud.available = false;
     }
 
+    // переход с лендинга («Начать бесплатно» / «Открыть трекер») всегда ведёт на вход или регистрацию,
+    // даже если в этом браузере раньше выбрали «Продолжить без аккаунта»
+    const asked = new URLSearchParams(location.search).get('auth');
+    if (asked) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* ignore */ } }
     if (user) startCloudUser(user);
+    else if (asked === 'login' || asked === 'register') showAuth(asked);
     else if (wantsLocal) startLocal();
     else showAuth('login');
 

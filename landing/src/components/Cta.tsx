@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
-import { TRACKER_URL, asset, motionOff, setMotion } from '@/lib/site'
+import { REGISTER_URL, TRACKER_URL, asset, motionOff, setMotion } from '@/lib/site'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -14,7 +14,7 @@ export function Cta({ onMotion }: { onMotion: (on: boolean) => void }) {
             <h2 id="cta-title">Возьми первый контракт</h2>
             <p>Бесплатно. Нужна только почта — или вообще ничего, если без аккаунта.</p>
           </div>
-          <Button asChild><a href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a></Button>
+          <Button asChild><a href={REGISTER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a></Button>
         </div>
       </section>
       <footer className="foot">

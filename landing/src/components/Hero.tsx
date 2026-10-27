@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { ArrowDown } from 'lucide-react'
-import { TRACKER_URL, asset, motionOff } from '@/lib/site'
+import { REGISTER_URL, asset, motionOff } from '@/lib/site'
 import { Shot } from '@/components/Frame'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,7 +53,7 @@ export function Hero() {
           </motion.h1>
           <p className="lead">Этапы, материалы, бюджет и отсчёт до конвента — по каждому костюму. С ноутбука в мастерской, с телефона в зале.</p>
           <div className="hero-cta">
-            <Button asChild><a href={TRACKER_URL}>Начать бесплатно</a></Button>
+            <Button asChild><a href={REGISTER_URL}>Начать бесплатно</a></Button>
             <Button asChild variant="outline"><a href="#story">Что внутри <ArrowDown aria-hidden /></a></Button>
           </div>
           <div className="hero-facts">

@@ -31,7 +31,12 @@
         if (!e.viewTransition) return;
         var from = '';
         try { from = (window.navigation && navigation.activation && navigation.activation.from && navigation.activation.from.url) || document.referrer; } catch (x) {}
-        if (m === 'off' || from.indexOf('/promo') === -1) e.viewTransition.skipTransition();
+        if (m === 'off' || from.indexOf('/promo') === -1) {
+          var vt = e.viewTransition, noop = function () {};
+          // пропущенный переход отклоняет свои промисы — гасим, чтобы не было ошибок в консоли
+          [vt.ready, vt.finished, vt.updateCallbackDone].forEach(function (pr) { if (pr && pr.catch) pr.catch(noop); });
+          vt.skipTransition();
+        }
       });
     })();
   </script>
@@ -573,6 +578,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="script.js?v=22"></script>
+  <script src="script.js?v=23"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 // Лендинг лежит в /promo/, трекер и картинки — уровнем выше.
-export const TRACKER_URL = '../'
+export const TRACKER_URL = '../?auth=login'
+export const REGISTER_URL = '../?auth=register'
 export const asset = (file: string) => `../assets/${file}`
 // сжатые арты: assets/art/<ширина>/<имя>.webp
 export const artUrl = (name: string, w: 160 | 480 | 960) => `../assets/art/${w}/${name}.webp`
