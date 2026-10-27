@@ -1,17 +1,13 @@
 // Лендинг лежит в /promo/, трекер и картинки — уровнем выше.
 export const TRACKER_URL = '../'
-export const art = (file: string) => `../assets/${file}`
+export const asset = (file: string) => `../assets/${file}`
+// сжатые арты: assets/art/<ширина>/<имя>.webp
+export const artUrl = (name: string, w: 160 | 480 | 960) => `../assets/art/${w}/${name}.webp`
+export const artSet = (name: string) => `${artUrl(name, 480)} 480w, ${artUrl(name, 960)} 960w`
 
-export const ARTS = {
-  banner: 'art-banner.jpg',
-  fire: 'art-fire.jpg',
-  geisha: 'art-geisha.jpg',
-  spirit: 'art-spirit.jpg',
-  spiritJump: 'art-spirit-jump.jpg',
-  ronin: 'art-ronin.jpg',
-  profile: 'art-profile.jpg',
-  flame: 'art-flame.jpg',
-  mask: 'art-mask.jpg',
-  hello: 'art-hello.jpg',
-  squad: 'art-squad.jpg',
-} as const
+// режим анимаций, общий с трекером (data-motion на <html> ставится до загрузки)
+export const motionOff = () => document.documentElement.dataset.motion === 'off'
+export function setMotion(on: boolean) {
+  document.documentElement.dataset.motion = on ? 'on' : 'off'
+  try { localStorage.setItem('evilsforge.motion', on ? 'on' : 'off') } catch { /* ignore */ }
+}

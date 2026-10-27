@@ -1,14 +1,30 @@
 <!doctype html>
-<html lang="ru" class="dark">
+<html lang="ru" data-motion="on">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Evil's Forge — кузница косплея</title>
-    <meta name="description" content="Трекер задач для косплей-мастерской: персонажи, этапы крафта, материалы и бюджет — на любом устройстве." />
-    <link rel="icon" href="../assets/logo-sm.webp" type="image/webp" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Russo+One&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Evil's Forge — куй костюмы, а не хаос</title>
+    <meta name="description" content="Трекер для косплееров и мастерских: этапы крафта, материалы, бюджет и отсчёт до конвента. Бесплатно, в браузере." />
+    <meta name="theme-color" content="#0B0A14" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Evil's Forge — куй костюмы, а не хаос" />
+    <meta property="og:description" content="Трекер для косплееров и мастерских: этапы крафта, материалы, бюджет и отсчёт до конвента. Бесплатно, в браузере." />
+    <meta property="og:image" content="https://evils-forge.vercel.app/assets/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="../assets/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png" />
+    <link rel="preload" href="../assets/fonts/dela-gothic-one-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="../assets/fonts/tektur-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // режим анимаций общий с трекером: ручной выбор важнее системной настройки
+      (function () {
+        var m = null;
+        try { m = localStorage.getItem('evilsforge.motion'); } catch (e) {}
+        if (m !== 'on' && m !== 'off') m = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on';
+        document.documentElement.setAttribute('data-motion', m);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

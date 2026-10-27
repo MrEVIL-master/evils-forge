@@ -1,31 +1,30 @@
+import { useState } from 'react'
 import { MotionConfig } from 'motion/react'
 import { Nav } from '@/components/Nav'
 import { Hero } from '@/components/Hero'
-import { Marquee } from '@/components/Marquee'
-import { Features } from '@/components/Features'
-import { Showcase } from '@/components/Showcase'
-import { Steps } from '@/components/Steps'
+import { Story } from '@/components/Story'
+import { AiPlan } from '@/components/AiPlan'
+import { Characters } from '@/components/Characters'
 import { Gallery } from '@/components/Gallery'
 import { Faq } from '@/components/Faq'
 import { Cta } from '@/components/Cta'
+import { motionOff } from '@/lib/site'
 
 export default function App() {
+  // «Выкл» — по настройке системы или вручную (общая настройка с трекером)
+  const [off, setOff] = useState(motionOff)
   return (
-    <MotionConfig reducedMotion="user">
-      <div className="relative min-h-svh overflow-x-clip bg-night">
-        <div className="pointer-events-none fixed inset-0 z-0 bg-[var(--noise)] opacity-[0.07] mix-blend-overlay" aria-hidden />
-        <Nav />
-        <main className="relative z-10">
-          <Hero />
-          <Marquee />
-          <Features />
-          <Showcase />
-          <Steps />
-          <Gallery />
-          <Faq />
-          <Cta />
-        </main>
-      </div>
+    <MotionConfig reducedMotion={off ? 'always' : 'never'}>
+      <Nav />
+      <main>
+        <Hero />
+        <Story />
+        <AiPlan />
+        <Characters />
+        <Gallery />
+        <Faq />
+        <Cta onMotion={on => setOff(!on)} />
+      </main>
     </MotionConfig>
   )
 }

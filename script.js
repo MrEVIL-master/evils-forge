@@ -66,6 +66,9 @@
   };
   const PROJECT_COLORS = ['#e8175d', '#6a3aa2', '#2f62d6', '#2ff0e6', '#3ff2b0', '#f5e11a', '#ff7ab6', '#ff3b4e'];
   const SPACE_NAME = { workshop: 'Мастерская', personal: 'Личное', all: 'Всё' };
+  // арты хранятся как 'art-banner.jpg' (так их помнят сохранённые досье); показываем сжатые WebP нужного размера
+  const artUrl = (file, w) => `assets/art/${w}/${String(file).replace(/\.jpg$/, '.webp')}`;
+  const artSet = file => `${artUrl(file, 480)} 480w, ${artUrl(file, 960)} 960w`;
 
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
@@ -590,13 +593,15 @@
     return `<span class="due ${d.cls}"${title}>${escapeHtml(d.text)}</span>`;
   }
 
-  // срок до конвента в досье: «3 дня до Comic Con»
+  // срок до конвента в досье: «Comic Con через 3 дня»
   function conDue(p) {
     if (p.deadline == null) return p.convention ? { text: p.convention, cls: '' } : null;
     const dd = dayDiff(p.deadline);
-    if (dd < 0) return { text: p.convention ? `${p.convention} — прошёл` : 'дата прошла', cls: 'is-past' };
-    if (dd === 0) return { text: p.convention ? `${p.convention} сегодня` : 'сегодня', cls: 'is-soon' };
-    return { text: `${daysWord(dd)} до ${p.convention || 'даты'}`, cls: dd <= 7 ? 'is-soon' : '' };
+    const name = p.convention ? p.convention + ' ' : '';
+    if (dd < 0) return { text: p.convention ? `${p.convention} — уже прошёл` : 'дата прошла', cls: 'is-past' };
+    if (dd === 0) return { text: `${name}сегодня`, cls: 'is-soon' };
+    if (dd === 1) return { text: `${name}завтра`, cls: 'is-soon' };
+    return { text: `${name}через ${daysWord(dd)}`, cls: dd <= 7 ? 'is-soon' : '' };
   }
 
   const fmtStamp = ms => {
@@ -705,7 +710,7 @@
   /* ---------- Рендер: досье ---------- */
   function dosArtHtml(p) {
     if (p.art) {
-      return `<span class="frame frame-sm dos-art" style="--art:url('assets/${p.art}')"><img src="assets/${p.art}" alt="" loading="lazy" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>`;
+      return `<span class="frame frame-sm dos-art" style="--art:url('${artUrl(p.art, 160)}')"><img src="${artUrl(p.art, 160)}" alt="" width="56" height="56" loading="lazy" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>`;
     }
     return `<span class="frame frame-sm dos-art"><span class="dos-letter">${escapeHtml((p.name || '?').trim().charAt(0).toUpperCase() || '?')}</span></span>`;
   }
@@ -881,6 +886,8 @@
     setActive(el.spaceSwitch, $(`.seg-btn[data-value="${space}"]`, el.spaceSwitch));
     el.spaceLabel.textContent = SPACE_NAME[space];
     $$('.menu-item', el.spaceMenu).forEach(b => b.setAttribute('aria-checked', String(b.dataset.value === space)));
+    // смена пространства — список просто проявляется за 150 мс, без «сбоя»
+    if (!reducedMotion) el.board.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: 'linear' });
     if (panel.id) {
       const t = state.tasks.find(x => x.id === panel.id);
       if (t && !inSpace(t)) closePanel();
@@ -1067,7 +1074,7 @@
         <button type="button" class="icon-btn close-x" data-pact="close" aria-label="Закрыть панель (Esc)" title="Закрыть (Esc)">${icon('close')}</button>
       </header>
       <div class="panel-body" tabindex="-1">
-        ${proj && proj.art ? `<span class="frame panel-art" style="--art:url('assets/${proj.art}')"><img src="assets/${proj.art}" alt="${escapeHtml(proj.name)} — арт" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
+        ${proj && proj.art ? `<span class="frame panel-art" style="--art:url('${artUrl(proj.art, 480)}')"><img src="${artUrl(proj.art, 480)}" srcset="${artSet(proj.art)}" sizes="400px" alt="${escapeHtml(proj.name)} — арт" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
         <textarea class="panel-title" data-f="title" rows="1" maxlength="120" aria-label="Название контракта">${escapeHtml(task.title)}</textarea>
         <div class="seg seg-full seg-form" role="radiogroup" aria-label="Статус">
           ${STATUSES.map(s => `<label class="seg-opt"><input type="radio" name="pfStatus" value="${s}" data-f="status" ${task.status === s ? 'checked' : ''}><span>${STATUS_LABEL[s]}</span></label>`).join('')}
@@ -1629,7 +1636,7 @@
       ARTS.map(a => `
         <label class="art-opt" title="${escapeHtml(a.title)}">
           <input type="radio" name="part" value="${a.file}" ${a.file === art ? 'checked' : ''} aria-label="${escapeHtml(a.title)}">
-          <span><img src="assets/${a.file}" alt="" loading="lazy" decoding="async"></span>
+          <span><img src="${artUrl(a.file, 160)}" alt="" width="160" height="226" loading="lazy" decoding="async"></span>
         </label>`).join('');
     renderProjectPreview();
     openOverlay(el.projectOverlay, el.pName);
@@ -1853,10 +1860,10 @@
     node.setAttribute('aria-live', 'assertive');
     node.innerHTML = `
       <div class="dp-card">
-        ${project.art ? `<span class="frame dp-art is-scanning" style="--art:url('assets/${project.art}')"><img src="assets/${project.art}" alt="" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
+        ${project.art ? `<span class="frame dp-art is-scanning" style="--art:url('${artUrl(project.art, 480)}')"><img src="${artUrl(project.art, 480)}" srcset="${artSet(project.art)}" sizes="280px" alt="" decoding="async"><span class="scan" aria-hidden="true"><i></i></span></span>` : ''}
         <span class="dp-stamp">Досье закрыто</span>
         <b class="dp-name">${escapeHtml(project.name)}</b>
-        <span class="dp-sub">${escapeHtml(project.convention ? `Готов к ${project.convention}` : 'Готов к дефиле')}</span>
+        <span class="dp-sub">${escapeHtml(project.convention ? `Готов · ${project.convention}` : 'Готов к дефиле')}</span>
         <span class="dp-hint">Нажми, чтобы продолжить</span>
       </div>`;
     document.body.appendChild(node);
@@ -1884,7 +1891,7 @@
     const project = pid && !projectWasDone && projectDone(pid) ? projectById(pid) : null;
     if (project && !reducedMotion) { showDossierClosed(project); return; }
     const msg = project
-      ? `Досье «${project.name}» закрыто — ${project.convention ? `готов к ${project.convention}` : 'готов к дефиле'}`
+      ? `Досье «${project.name}» закрыто — ${project.convention ? `готов · ${project.convention}` : 'готов к дефиле'}`
       : `Контракт закрыт: «${task.title}»`;
     toast(msg, {
       type: 'success', action: 'Вернуть',
@@ -1981,12 +1988,12 @@
      пользователя (api/prioritize) + SPEC-документ в Markdown
      ========================================================= */
   const AI_ERRORS = {
-    unauthorized: 'AI-план работает в аккаунте: войди или зарегистрируйся (меню справа сверху).',
+    unauthorized: 'AI-план работает в аккаунте. Войди или создай аккаунт в меню профиля.',
     no_user_key: 'Добавь свой ключ Gemini — без него AI-план не работает.',
     invalid_key: 'Google не принял ключ. Проверь его в AI Studio и сохрани заново.',
     bad_key_format: 'Это не похоже на ключ Gemini. Скопируй его целиком из AI Studio.',
     ai_rate_limited: 'Gemini просит паузу: лимит запросов твоего ключа. Попробуй через минуту.',
-    no_tasks: 'Нет открытых задач для плана.'
+    no_tasks: 'Нет открытых контрактов — план строить не из чего.'
   };
   const SPACE_LABEL = { all: 'всё', workshop: 'мастерская', personal: 'личное' };
   const ai = Object.assign({ focus: '', at: 0, context: '', model: '', spec: '', tab: 'list' }, readJSON(KEYS.ai) || {});
@@ -2208,7 +2215,7 @@
     $('span', el.aiApplyAll).textContent = pending ? `Применить приоритеты (${pending})` : 'Приоритеты совпадают';
     const parts = [];
     if (ai.at && list.length) parts.push('план составлен ' + relative(ai.at));
-    if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новая задача', 'новые задачи', 'новых задач'])} не в плане`);
+    if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новый контракт', 'новых контракта', 'новых контрактов'])} не в плане`);
     el.aiMeta.textContent = parts.join(' · ');
     $('span', el.aiRun).textContent = list.length ? 'Пересчитать' : 'Расставить';
     renderSpec();
@@ -2239,14 +2246,14 @@
     if (!open.length) { aiMessage(el.aiMsg, AI_ERRORS.no_tasks, 'warn'); return; }
     if (store.mode !== 'cloud') { aiMessage(el.aiMsg, AI_ERRORS.unauthorized, 'warn'); return; }
     if (aiKey.known && !aiKey.hasKey) { aiMessage(el.aiMsg, AI_ERRORS.no_user_key, 'warn'); openKeyModal(); return; }
-    if (open.length > 120) aiMessage(el.aiMsg, 'Задач больше 120 — в план попадут первые 120 по дедлайну.', 'warn');
+    if (open.length > 120) aiMessage(el.aiMsg, 'Контрактов больше 120 — в план попадут первые 120 по сроку.', 'warn');
 
     ai.context = el.aiContext.value.trim();
     aiBusy = true;
     el.aiRun.disabled = true;
     el.aiOverlay.classList.add('ai-busy');
     $('span', el.aiRun).textContent = 'Думаю…';
-    if (open.length <= 120) aiMessage(el.aiMsg, 'Gemini раскладывает задачи и пишет SPEC…');
+    if (open.length <= 120) aiMessage(el.aiMsg, 'Gemini расставляет приоритеты и пишет SPEC.md…');
 
     const sorted = open.slice().sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity)).slice(0, 120);
     const iso = ms => (ms == null ? null : toLocalInput(ms));
@@ -2637,7 +2644,7 @@
 
   const AUTH_ERRORS = {
     invalid_credentials: 'Почта или пароль не подходят. Проверь раскладку и попробуй ещё раз',
-    email_taken: 'Эта почта уже зарегистрирована — войди',
+    email_taken: 'Эта почта уже зарегистрирована. Войди во вкладке «Вход»',
     invalid_email: 'Похоже, почта указана с ошибкой',
     weak_password: 'Пароль слишком короткий — минимум 6 символов',
     password_too_long: 'Пароль слишком длинный',
@@ -2664,7 +2671,11 @@
     el.aEye.classList.toggle('on', show);
     el.aEye.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
   });
-  [el.aEmail, el.aPass].forEach(i => i.addEventListener('input', () => i.closest('.field').classList.remove('invalid')));
+  const FIELD_ERR = new Map([[el.aEmail, 'Проверь почту — в ней ошибка'], [el.aPass, 'Пароль — минимум 6 символов']]);
+  [el.aEmail, el.aPass, el.aKey].forEach(i => i.addEventListener('input', () => i.closest('.field').classList.remove('invalid')));
+  el.authForm.addEventListener('submit', () => {
+    FIELD_ERR.forEach((text, input) => { const m = $('.field-error', input.closest('.field')); if (m) m.innerHTML = icon('alert') + text; });
+  }, true);
 
   el.authForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -2685,14 +2696,27 @@
         if (keyInfo) Object.assign(aiKey, { known: true, hasKey: keyInfo.hasKey, hint: keyInfo.hint });
         el.aKey.value = '';
         await startCloudUser(user);
-        toast(keyInfo && keyInfo.hasKey ? 'Добро пожаловать! AI-план подключён' : 'Добро пожаловать в кузницу!', { type: 'success' });
+        toast(keyInfo && keyInfo.hasKey ? 'Добро пожаловать! AI-план подключён' : 'Добро пожаловать в кузницу', { type: 'success' });
       } else {
         const { user } = await api('auth/login', { method: 'POST', body: { email, password } });
         await startCloudUser(user);
       }
       el.aPass.value = '';
     } catch (err) {
-      authMessage(translateAuthError(err), 'error');
+      const code = String((err && err.message) || '');
+      const fieldFor = { invalid_email: el.aEmail, email_taken: el.aEmail, weak_password: el.aPass, password_too_long: el.aPass, invalid_key: el.aKey, bad_key_format: el.aKey }[code];
+      if (fieldFor) {
+        const field = fieldFor.closest('.field');
+        const fold = fieldFor.closest('details');
+        if (fold) fold.open = true;
+        let msg = $('.field-error', field);
+        if (!msg) { msg = document.createElement('small'); msg.className = 'field-error'; field.appendChild(msg); }
+        msg.innerHTML = icon('alert') + escapeHtml(translateAuthError(err));
+        invalid(fieldFor);
+        authMessage('');
+      } else {
+        authMessage(translateAuthError(err), 'error');
+      }
     } finally {
       el.authSubmit.classList.remove('busy');
       el.authSubmit.disabled = !cloudReady();
@@ -2757,7 +2781,19 @@
   el.umKeys.addEventListener('click', () => openOverlay(el.keysOverlay, $('[data-close]', el.keysOverlay)));
 
   /* ---------- Старт ---------- */
+  // на телефоне сканирование арта — по касанию
+  document.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || reducedMotion) return;
+    const f = e.target.closest && e.target.closest('.frame');
+    if (!f || !f.querySelector('.scan')) return;
+    f.classList.remove('is-scanning');
+    void f.offsetWidth;
+    f.classList.add('is-scanning');
+    setTimeout(() => f.classList.remove('is-scanning'), 700);
+  }, { passive: true });
+
   async function boot() {
+    if (!reducedMotion) { el.app.classList.add('is-booting'); setTimeout(() => el.app.classList.remove('is-booting'), 300); }
     setActive(el.spaceSwitch, $(`.seg-btn[data-value="${state.space}"]`, el.spaceSwitch) || $('.seg-btn', el.spaceSwitch));
     el.spaceLabel.textContent = SPACE_NAME[state.space] || SPACE_NAME.all;
     $$('.menu-item', el.spaceMenu).forEach(b => b.setAttribute('aria-checked', String(b.dataset.value === state.space)));

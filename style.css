@@ -369,7 +369,7 @@ input[type="number"].input { font-family: var(--font-mono); }
   background: var(--surface-1); border-bottom: 1px solid var(--line);
 }
 .hud-brand { display: flex; align-items: center; gap: 10px; color: var(--text-1); text-decoration: none; flex: none; }
-.hud-brand img { width: 28px; height: 36px; object-fit: contain; }
+.hud-brand img { width: 28px; height: 36px; object-fit: contain; view-transition-name: brand-logo; }
 .hud-name { font: 700 15px/1 var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
 .hud .seg-space { margin-left: 8px; }
 .space-m { display: none; position: relative; }
@@ -1030,6 +1030,14 @@ html[data-space="personal"] .ws-only { display: none !important; }
 @keyframes panelIn { from { opacity: 0; transform: translateX(24px); } }
 [data-motion="on"] .app.is-booting { animation: fadeIn .15s linear; }
 
+/* переход с лендинга: «сбой полосами», логотип переезжает в шапку (браузеры без поддержки — обычный переход) */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: vtOut .2s steps(4) both; }
+::view-transition-new(root) { animation: vtIn .2s steps(4) both; }
+@keyframes vtOut { to { clip-path: polygon(0 0, 100% 0, 100% 12%, 0 12%, 0 25%, 100% 25%, 100% 37%, 0 37%, 0 50%, 100% 50%, 100% 62%, 0 62%, 0 75%, 100% 75%, 100% 87%, 0 87%); transform: translateX(12px); } }
+@keyframes vtIn { from { clip-path: polygon(0 12%, 100% 12%, 100% 25%, 0 25%, 0 37%, 100% 37%, 100% 50%, 0 50%, 0 62%, 100% 62%, 100% 75%, 0 75%, 0 87%, 100% 87%, 100% 100%, 0 100%); transform: translateX(-12px); } }
+[data-motion="off"]::view-transition-old(root), [data-motion="off"]::view-transition-new(root), [data-motion="off"]::view-transition-group(*) { animation: none !important; }
+
 /* всё выключено: ничего не двигается, смены цвета мгновенные */
 [data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after {
   animation: none !important;
@@ -1127,9 +1135,6 @@ html[data-space="personal"] .ws-only { display: none !important; }
   #filtersBtn span { display: none; }
   #filtersBtn .dot { position: absolute; top: 8px; right: 8px; }
   .filters-menu { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; padding: 20px 16px calc(16px + var(--safe-b)); --c: 0px; }
-  .chips-m { display: flex; gap: 8px; margin: 0 0 8px; overflow-x: auto; }
-  .chips-m:empty { display: none; }
-  .chips-m .chip-filter { display: inline-flex; flex: none; }
 
   .list { padding-bottom: 24px; }
   .task {
@@ -1240,6 +1245,9 @@ html[data-space="personal"] .ws-only { display: none !important; }
   .tab-item span { display: none; }
 }
 
-@media (min-width: 768px) {
-  .chips-m { display: none; }
+/* телефон в горизонтальном положении и низкие окна: сводку прячем, панель инструментов не липнет */
+@media (min-width: 768px) and (max-height: 500px) {
+  .statline { display: none; }
+  .toolbar { position: static; }
+  .layout { padding-top: 12px; }
 }

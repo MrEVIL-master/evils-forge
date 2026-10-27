@@ -10,7 +10,8 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="Evil's Forge — куй костюмы, а не хаос">
   <meta property="og:description" content="Трекер для косплееров и мастерских: этапы крафта, материалы, бюджет и отсчёт до конвента. Бесплатно, в браузере.">
-  <meta property="og:image" content="assets/og.png">
+  <meta property="og:image" content="https://evils-forge.vercel.app/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -25,6 +26,13 @@
       if (s === 'workshop' || s === 'personal' || s === 'all') d.setAttribute('data-space', s);
       if (m !== 'on' && m !== 'off') m = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'off' : 'on';
       d.setAttribute('data-motion', m);
+      // переход «сбой полосами» — только когда пришли с лендинга, не при обычной перезагрузке
+      window.addEventListener('pagereveal', function (e) {
+        if (!e.viewTransition) return;
+        var from = '';
+        try { from = (window.navigation && navigation.activation && navigation.activation.from && navigation.activation.from.url) || document.referrer; } catch (x) {}
+        if (m === 'off' || from.indexOf('/promo') === -1) e.viewTransition.skipTransition();
+      });
     })();
   </script>
 </head>
@@ -518,8 +526,9 @@
   <!-- ===== Вход и регистрация ===== -->
   <section class="auth" id="auth" hidden aria-labelledby="authTitle">
     <figure class="auth-art">
-      <span class="frame scan-once">
-        <img src="assets/art-banner.jpg" alt="Призрачный самурай — арт" decoding="async">
+      <span class="frame" style="--art:url('assets/art/960/art-banner.webp')">
+        <img src="assets/art/960/art-banner.webp" srcset="assets/art/480/art-banner.webp 480w, assets/art/960/art-banner.webp 960w" sizes="(max-width: 767px) 100vw, 55vw" width="960" height="1359" alt="Призрачный самурай — арт" decoding="async" fetchpriority="high">
+        <span class="scan" aria-hidden="true"><i></i></span>
       </span>
       <figcaption class="mono-label">Досье #01 · Призрачный самурай</figcaption>
     </figure>

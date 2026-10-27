@@ -1,69 +1,45 @@
-import { motion, useMotionValueEvent, useScroll, useSpring } from 'motion/react'
-import { useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { TRACKER_URL, art } from '@/lib/site'
+import { useEffect, useState } from 'react'
+import { Menu, X, ArrowUpRight } from 'lucide-react'
+import { TRACKER_URL, asset } from '@/lib/site'
 
 const LINKS = [
-  { href: '#features', label: 'Возможности' },
-  { href: '#showcase', label: 'Персонажи' },
-  { href: '#how', label: 'Как работает' },
+  { href: '#story', label: 'История' },
+  { href: '#ai', label: 'AI-план' },
+  { href: '#characters', label: 'Персонажи' },
   { href: '#faq', label: 'Вопросы' },
 ]
 
 export function Nav() {
-  const { scrollY, scrollYProgress } = useScroll()
-  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30 })
-  const [hidden, setHidden] = useState(false)
-  const [solid, setSolid] = useState(false)
-
-  // прячем шапку при прокрутке вниз, показываем при прокрутке вверх
-  useMotionValueEvent(scrollY, 'change', (y) => {
-    const prev = scrollY.getPrevious() ?? 0
-    setHidden(y > prev && y > 240)
-    setSolid(y > 40)
-  })
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
+  }, [open])
 
   return (
-    <motion.header
-      className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6"
-      animate={{ y: hidden ? -110 : 0 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <div
-        className={`mx-auto flex max-w-6xl items-center gap-4 rounded-xl px-3 py-2 transition-[background,box-shadow] duration-500 sm:px-4 ${
-          solid ? 'ink-glass [--sc:var(--color-magenta)]' : 'border-2 border-transparent'
-        }`}
-      >
-        <a href="#top" className="flex items-center gap-3">
-          <img src={art('logo-sm.webp')} alt="" className="logo-glow h-11 w-auto" />
-          <span className="comic-title hidden text-lg [-webkit-text-stroke:1.2px_var(--color-ink)] [text-shadow:2px_2px_0_var(--color-ink),4px_4px_0_var(--color-magenta)] sm:inline">
-            EVIL'S FORGE
-          </span>
+    <header className="hud">
+      <div className="wrap">
+        <a className="brand" href="#top" aria-label="Evil's Forge — наверх">
+          <img src={asset('logo-sm.webp')} alt="" width={28} height={36} />
+          <span>Evil's Forge</span>
         </a>
-        <nav className="ml-auto hidden items-center gap-1 md:flex">
-          {LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="rounded-md px-3 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
-            >
-              {l.label}
-            </a>
-          ))}
+        <nav className="nav" aria-label="Разделы">
+          {LINKS.map(l => <a key={l.href} href={l.href}>{l.label}</a>)}
         </nav>
-        <Button asChild className="btn-comic ml-auto h-10 bg-magenta px-4 text-sm text-white hover:bg-magenta md:ml-2">
-          <a href={TRACKER_URL}>
-            <span className="inline-flex items-center gap-1.5">
-              Открыть трекер <ArrowUpRight className="size-4" />
-            </span>
-          </a>
-        </Button>
+        <a className="btn btn-primary btn-sm btn-open" href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a>
+        <button type="button" className="menu-btn" aria-label={open ? 'Закрыть меню' : 'Меню'} aria-expanded={open} aria-controls="mnav" onClick={() => setOpen(o => !o)}>
+          {open ? <X aria-hidden /> : <Menu aria-hidden />}
+        </button>
       </div>
-      <motion.div
-        style={{ scaleX: progress }}
-        className="fixed inset-x-0 top-0 h-1 origin-left bg-gradient-to-r from-magenta via-violet to-cyan"
-      />
-    </motion.header>
+      {open && (
+        <nav className="mnav" id="mnav" aria-label="Разделы">
+          {LINKS.map(l => <a key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</a>)}
+          <a className="btn btn-primary" href={TRACKER_URL}>Открыть трекер <ArrowUpRight aria-hidden /></a>
+        </nav>
+      )}
+    </header>
   )
 }
