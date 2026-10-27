@@ -1293,3 +1293,19 @@ html[data-space="personal"] .ws-only { display: none !important; }
   .ds-sugg li .btn { grid-column: 1; justify-self: start; }
   .ds-sugg li .icon-btn { grid-row: 1; grid-column: 2; }
 }
+
+/* ---------- AI по SPEC: статус вместо отдельного окна ---------- */
+.ai-status { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid var(--line); background: none; color: var(--text-3); font: 500 12px/1 var(--font-mono); letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+.ai-status .ico { width: 16px; height: 16px; color: var(--accent); }
+.ai-status:hover { border-color: var(--line-strong); color: var(--text-1); }
+.ai-status[data-state="warn"] { border-color: var(--warn); color: var(--warn); }
+.ai-status[data-state="warn"] .ico { color: var(--warn); }
+.ai-status[data-state="off"] .ico { color: var(--text-3); }
+[data-motion="on"] .ai-status[data-state="busy"] .ico { animation: aiPulse 1s ease-in-out infinite; }
+@keyframes aiPulse { 50% { opacity: .3; } }
+.auth-key .opt { margin-left: 6px; font: 400 12px var(--font-mono); color: var(--text-3); text-transform: none; letter-spacing: 0; }
+@media (max-width: 767px) {
+  .tabbar { grid-template-columns: repeat(4, 1fr) !important; }
+  .ai-status { height: 44px; min-width: 44px; justify-content: center; }
+  .ai-status[data-state="ok"] span, .ai-status[data-state="busy"] span { display: none; }
+}

@@ -17,7 +17,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preload" href="assets/fonts/tektur-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/ibm-plex-sans-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=21">
+  <link rel="stylesheet" href="style.css?v=22">
   <script>
     // Пространство и режим анимаций ставятся до первой отрисовки, чтобы ничего не мелькнуло
     (function () {
@@ -224,7 +224,7 @@
                   <option value="deadline">По сроку</option>
                   <option value="priority">По приоритету</option>
                   <option value="created">Сначала новые</option>
-                  <option value="ai">AI-порядок</option>
+                  <option value="ai">По SPEC (AI)</option>
                 </select>
               </label>
             </div>
@@ -232,8 +232,8 @@
           <button type="button" class="btn btn-ghost btn-sm spec-btn" id="specBtn" title="SPEC досье (S)" hidden>
             <svg class="ico"><use href="#i-doc"/></svg><span>SPEC</span>
           </button>
-          <button type="button" class="btn btn-ghost btn-sm ai-btn" id="aiPlanBtn" title="AI-план (A)">
-            <svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span>
+          <button type="button" class="ai-status" id="aiStatus" data-state="off" hidden>
+            <svg class="ico"><use href="#i-spark"/></svg><span id="aiStatusText">AI</span>
           </button>
         </div>
 
@@ -250,7 +250,6 @@
       <button type="button" class="tab-item is-active" data-tab="list"><svg class="ico"><use href="#i-steps"/></svg><span>Контракты</span></button>
       <button type="button" class="tab-item" data-tab="dossier"><svg class="ico"><use href="#i-dossier"/></svg><span>Досье</span></button>
       <button type="button" class="tab-item tab-add" data-tab="add" aria-label="Новый контракт"><span class="tab-plus"><svg class="ico"><use href="#i-plus"/></svg></span></button>
-      <button type="button" class="tab-item" data-tab="ai"><svg class="ico"><use href="#i-spark"/></svg><span>AI-план</span></button>
       <button type="button" class="tab-item" data-tab="more"><svg class="ico"><use href="#i-menu"/></svg><span>Ещё</span></button>
     </nav>
   </div>
@@ -399,64 +398,6 @@
     </form>
   </div>
 
-  <!-- ===== AI-план ===== -->
-  <div class="overlay" id="aiOverlay" aria-hidden="true">
-    <section class="modal modal-lg sheet-full ai-modal" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
-      <header class="modal-head">
-        <button type="button" class="icon-btn m-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-back"/></svg></button>
-        <div class="ai-headline">
-          <h3 id="aiTitle">AI-план</h3>
-          <span class="mono-label" id="aiKeyLabel">Gemini · твой ключ</span>
-        </div>
-        <button type="button" class="icon-btn d-only" data-close aria-label="Закрыть"><svg class="ico"><use href="#i-close"/></svg></button>
-      </header>
-
-      <div class="modal-body">
-        <div class="ai-nokey" id="aiNoKey" hidden>
-          <svg class="ico"><use href="#i-key"/></svg>
-          <p>AI-план работает на твоём личном ключе Gemini. Добавь его, чтобы расставить приоритеты.</p>
-          <button type="button" class="btn btn-primary btn-sm" id="aiAddKey"><span>Добавить ключ</span></button>
-        </div>
-
-        <form class="ai-ask" id="aiForm">
-          <input id="aiContext" class="input" type="text" maxlength="400" autocomplete="off" placeholder="Условия: «дедлайн 15 ноября», «сегодня 3 часа», «сначала заказы»">
-          <button type="submit" class="btn btn-primary" id="aiRun"><svg class="ico"><use href="#i-spark"/></svg><span>Расставить</span></button>
-        </form>
-        <div class="ai-progress" aria-hidden="true"><span></span></div>
-        <p class="msg" id="aiMsg" role="status"></p>
-
-        <div class="tabs" id="aiTabs" role="tablist">
-          <button type="button" role="tab" class="tab is-active" data-aitab="list">Порядок</button>
-          <button type="button" role="tab" class="tab" data-aitab="spec">SPEC.md</button>
-        </div>
-
-        <div class="ai-panel" data-aipanel="list">
-          <div class="ai-focus" id="aiFocus" hidden><b class="mono-label">Фокус на сегодня</b><span id="aiFocusText"></span></div>
-          <ol class="ai-list" id="aiList"></ol>
-        </div>
-
-        <div class="ai-panel" data-aipanel="spec" hidden>
-          <div class="spec-bar">
-            <span class="spec-file"><svg class="ico"><use href="#i-doc"/></svg>SPEC.md</span>
-            <span class="spacer"></span>
-            <button type="button" class="btn btn-text btn-sm" id="specCopy"><svg class="ico"><use href="#i-copy"/></svg><span>Копировать</span></button>
-            <button type="button" class="btn btn-text btn-sm" id="specDownload"><svg class="ico"><use href="#i-download"/></svg><span>Скачать</span></button>
-            <button type="button" class="btn btn-text btn-sm" id="specRawToggle" aria-pressed="false"><svg class="ico"><use href="#i-edit"/></svg><span>Исходник</span></button>
-          </div>
-          <article class="spec-doc" id="specDoc"></article>
-          <pre class="spec-raw" id="specRaw" hidden></pre>
-        </div>
-      </div>
-
-      <footer class="modal-foot">
-        <span class="ai-meta mono" id="aiMeta"></span>
-        <span class="spacer"></span>
-        <button type="button" class="btn btn-ghost d-only" data-close><span>Закрыть</span></button>
-        <button type="button" class="btn btn-primary" id="aiApplyAll" disabled><svg class="ico"><use href="#i-check"/></svg><span>Применить приоритеты</span></button>
-      </footer>
-    </section>
-  </div>
-
   <!-- ===== SPEC досье ===== -->
   <div class="overlay" id="dsOverlay" aria-hidden="true">
     <section class="modal modal-lg sheet-full ai-modal ds-modal" role="dialog" aria-modal="true" aria-labelledby="dsTitle">
@@ -476,10 +417,6 @@
           <button type="button" class="btn btn-primary btn-sm" id="dsAddKey"><span>Добавить ключ</span></button>
         </div>
 
-        <form class="ai-ask" id="dsForm">
-          <input id="dsContext" class="input" type="text" maxlength="400" autocomplete="off" placeholder="Условия: «бюджет до 8000», «парик уже есть», «фотосет раньше конвента»">
-          <button type="submit" class="btn btn-primary" id="dsRun"><svg class="ico"><use href="#i-spark"/></svg><span>Составить с AI</span></button>
-        </form>
         <div class="ai-progress" aria-hidden="true"><span></span></div>
         <p class="msg" id="dsMsg" role="status"></p>
 
@@ -503,7 +440,6 @@
         <span class="ai-meta mono" id="dsMeta"></span>
         <span class="spacer"></span>
         <button type="button" class="btn btn-ghost d-only" data-close><span>Закрыть</span></button>
-        <button type="button" class="btn btn-primary" id="dsApply" disabled><svg class="ico"><use href="#i-check"/></svg><span>Применить приоритеты</span></button>
       </footer>
     </section>
   </div>
@@ -557,7 +493,6 @@
         <dl class="keys">
           <dt><kbd>N</kbd></dt><dd>Новый контракт</dd>
           <dt><kbd>P</kbd></dt><dd>Новое досье</dd>
-          <dt><kbd>A</kbd></dt><dd>AI-план</dd>
           <dt><kbd>S</kbd></dt><dd>SPEC досье (когда выбран персонаж)</dd>
           <dt><kbd>/</kbd></dt><dd>Поиск</dd>
           <dt><kbd>Enter</kbd></dt><dd>Открыть выбранный контракт</dd>
@@ -618,14 +553,11 @@
           <small class="field-error"><svg class="ico"><use href="#i-alert"/></svg>Пароль — минимум 6 символов</small>
         </label>
 
-        <details class="fold" data-only="register">
-          <summary><svg class="ico"><use href="#i-plus"/></svg>Подключить AI-план <span class="opt">необязательно</span></summary>
-          <label class="field">
-            <span class="field-label">Ключ Gemini</span>
-            <input id="aKey" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
-            <small class="field-hint">Получить: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Хранится зашифрованным, никому не виден. Можно добавить позже в меню.</small>
-          </label>
-        </details>
+        <label class="field auth-key">
+          <span class="field-label">Ключ Gemini <span class="opt" id="aKeyOpt">для AI</span></span>
+          <input id="aKey" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+          <small class="field-hint" id="aKeyHint">С ключом трекер сам расставляет задачи по SPEC. Получить: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Хранится зашифрованным, виден только тебе.</small>
+        </label>
 
         <p class="msg auth-msg" id="authMsg" role="status"></p>
 
@@ -641,6 +573,6 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <script src="script.js?v=21"></script>
+  <script src="script.js?v=22"></script>
 </body>
 </html>

@@ -187,8 +187,9 @@
     umKeys: $('#umKeys'),
     motionToggle: $('#motionToggle'),
 
-    aiPlanBtn: $('#aiPlanBtn'),
     specBtn: $('#specBtn'),
+    aiStatus: $('#aiStatus'),
+    aiStatusText: $('#aiStatusText'),
     keyDot: $('#keyDot'),
     dsOverlay: $('#dsOverlay'),
     dsTitle: $('#dsTitle'),
@@ -196,9 +197,6 @@
     dsNoKey: $('#dsNoKey'),
     dsNoKeyText: $('#dsNoKeyText'),
     dsAddKey: $('#dsAddKey'),
-    dsForm: $('#dsForm'),
-    dsContext: $('#dsContext'),
-    dsRun: $('#dsRun'),
     dsMsg: $('#dsMsg'),
     dsSugg: $('#dsSugg'),
     dsSuggList: $('#dsSuggList'),
@@ -209,26 +207,6 @@
     dsDoc: $('#dsDoc'),
     dsRaw: $('#dsRaw'),
     dsMeta: $('#dsMeta'),
-    dsApply: $('#dsApply'),
-    aiOverlay: $('#aiOverlay'),
-    aiForm: $('#aiForm'),
-    aiContext: $('#aiContext'),
-    aiRun: $('#aiRun'),
-    aiFocus: $('#aiFocus'),
-    aiFocusText: $('#aiFocusText'),
-    aiMsg: $('#aiMsg'),
-    aiList: $('#aiList'),
-    aiMeta: $('#aiMeta'),
-    aiApplyAll: $('#aiApplyAll'),
-    aiNoKey: $('#aiNoKey'),
-    aiAddKey: $('#aiAddKey'),
-    aiTabs: $('#aiTabs'),
-    aiKeyLabel: $('#aiKeyLabel'),
-    specDoc: $('#specDoc'),
-    specRaw: $('#specRaw'),
-    specCopy: $('#specCopy'),
-    specDownload: $('#specDownload'),
-    specRawToggle: $('#specRawToggle'),
     keyOverlay: $('#keyOverlay'),
     keyForm: $('#keyForm'),
     keyInput: $('#keyInput'),
@@ -253,7 +231,7 @@
     tasks: [],
     projects: [],
     space: root.dataset.space || 'all',
-    filter: { status: 'active', priority: 'all', work: 'all', project: null, query: '', sort: 'deadline', hot: false },
+    filter: { status: 'active', priority: 'all', work: 'all', project: null, query: '', sort: 'ai', hot: false },
     selectedId: null,
     editingId: null,
     editingProjectId: null,
@@ -353,7 +331,9 @@
     writeJSON(KEYS.userCache(store.userId), { tasks: state.tasks, projects: state.projects, updatedAt: state.updatedAt });
   }
 
+  let onSaved = null; // AI по SPEC подписывается сюда: после изменений пересчитать план
   function save() {
+    if (onSaved) onSaved();
     if (store.mode === 'cloud') {
       state.updatedAt = Date.now();
       writeCache();
@@ -399,7 +379,10 @@
       aiRank: typeof t.aiRank === 'number' ? t.aiRank : null,
       aiPriority: PRIORITY[t.aiPriority] ? t.aiPriority : null,
       aiReason: typeof t.aiReason === 'string' ? t.aiReason.slice(0, 200) : '',
-      aiDone: typeof t.aiDone === 'string' ? t.aiDone.slice(0, 200) : ''
+      aiDone: typeof t.aiDone === 'string' ? t.aiDone.slice(0, 200) : '',
+      aiDoneAuto: !!t.aiDoneAuto,       // критерий написал AI (свой текст AI не перезаписывает)
+      priorityManual: !!t.priorityManual, // приоритет поставлен руками — AI его не меняет
+      aiSig: typeof t.aiSig === 'string' ? t.aiSig.slice(0, 40) : '' // отпечаток задачи на момент плана
     };
   }
 
@@ -433,6 +416,7 @@
       risks: arr(x.risks, 4, 200),
       context: str(x.context, 400),
       model: str(x.model, 60),
+      sig: str(x.sig, 40),
       at: typeof x.at === 'number' ? x.at : 0
     };
   }
@@ -811,7 +795,7 @@
       el.hotChip.title = 'Показать все';
     }
     const f = state.filter;
-    el.filtersDot.hidden = !(f.priority !== 'all' || f.sort !== 'deadline' || (f.work !== 'all' && state.space !== 'personal'));
+    el.filtersDot.hidden = !(f.priority !== 'all' || f.sort !== 'ai' || (f.work !== 'all' && state.space !== 'personal'));
   }
 
   /* ---------- Рендер: сводка ---------- */
@@ -1097,6 +1081,10 @@
     updatePanelCounts();
   }
 
+  const prioHintHtml = task => (task.priorityManual
+    ? `<button type="button" class="link-btn" data-pact="ai-prio" title="Сейчас приоритет закреплён вручную">${icon('spark')}<span>Вернуть приоритет AI</span></button>`
+    : (task.aiReason ? '<small class="field-hint mono">Приоритет — AI по SPEC</small>' : ''));
+
   function renderPanel(task) {
     const same = el.panel.dataset.id === task.id;
     const oldBody = $('.panel-body', el.panel);
@@ -1137,7 +1125,7 @@
           <dt><label for="pfDeadline">Срок</label></dt>
           <dd><input class="input" type="datetime-local" id="pfDeadline" data-f="deadline" value="${toLocalInput(task.deadline)}"><small class="field-hint mono" data-due-out>${fmtStamp(task.deadline)}</small></dd>
           <dt>Приоритет</dt>
-          <dd><div class="seg seg-form seg-prio" role="radiogroup" aria-label="Приоритет">${prio}</div></dd>
+          <dd><div class="seg seg-form seg-prio" role="radiogroup" aria-label="Приоритет">${prio}</div><span data-prio-hint>${prioHintHtml(task)}</span></dd>
         </dl>
         <section class="p-section p-done">
           <h4><label for="pfDone">Готово, когда</label></h4>
@@ -1263,9 +1251,13 @@
     if (!t) return;
     const patch = collectPanel();
     panel.dirty.clear();
+    if (patch && 'priority' in patch && patch.priority !== t.priority) patch.priorityManual = true;
+    if (patch && 'aiDone' in patch && patch.aiDone !== t.aiDone) patch.aiDoneAuto = false;
     const changed = patch && Object.keys(patch).some(k => JSON.stringify(t[k]) !== JSON.stringify(patch[k]));
     if (changed) {
       updateTask(t.id, patch);
+      const hint = $('[data-prio-hint]', el.panel);
+      if (hint) hint.innerHTML = prioHintHtml(t);
       panel.shownAt = t.updatedAt;
       renderProjects();
       render();
@@ -1404,6 +1396,13 @@
     if (a === 'close') { closePanel(); return; }
     if (!t) return;
     if (a === 'spec') { flushPanel(); if (t.projectId) openDossierSpec(t.projectId); return; }
+    if (a === 'ai-prio') {
+      flushPanel();
+      updateTask(t.id, { priorityManual: false, aiSig: '' });
+      renderPanel(t);
+      toast(aiReady() ? 'Приоритет снова расставит AI' : 'Приоритет снова расставит AI, когда будет ключ Gemini', { duration: 2600 });
+      return;
+    }
     if (a === 'add-sub') panelAddSub();
     else if (a === 'add-mat') {
       const m = { id: uid(), name: '', qty: 1, price: 0, bought: false };
@@ -1417,7 +1416,7 @@
   });
 
   /* ---------- Оверлеи ---------- */
-  const overlays = [el.confirmOverlay, el.keyOverlay, el.keysOverlay, el.projectOverlay, el.taskOverlay, el.aiOverlay, el.dsOverlay];
+  const overlays = [el.confirmOverlay, el.keyOverlay, el.keysOverlay, el.projectOverlay, el.taskOverlay, el.dsOverlay];
 
   function openOverlay(overlay, focusEl) {
     closeMenus();
@@ -1624,12 +1623,13 @@
     if (state.editingId) {
       const prev = state.tasks.find(t => t.id === state.editingId);
       const becameDone = prev && prev.status !== 'done' && data.status === 'done';
+      if (prev && data.priority !== prev.priority) data.priorityManual = true;
       const projectWasDone = data.projectId ? projectDone(data.projectId) : false;
       task = updateTask(state.editingId, data);
       if (becameDone && task) after = () => celebrate(task, projectWasDone);
       else toast('Контракт обновлён', { type: 'success' });
     } else {
-      task = createTask(data);
+      task = createTask(Object.assign({ priorityManual: data.priority !== 'medium' }, data));
       toast('Контракт принят', { type: 'success' });
     }
     // если контракт не попадает в текущий вид — показываем его
@@ -2025,8 +2025,6 @@
       setView(tab);
     } else if (tab === 'add') {
       openTaskModal(null);
-    } else if (tab === 'ai') {
-      openAiPlan();
     } else if (tab === 'more') {
       toggleMenu(el.userMenu, el.userBtn);
     }
@@ -2037,29 +2035,144 @@
   });
 
   /* =========================================================
-     ToDo · AI-план: приоритезация задач через Gemini личным ключом
-     пользователя (api/prioritize) + SPEC-документ в Markdown
+     AI по SPEC: трекер сам расставляет порядок и приоритеты
+     через Gemini на личном ключе пользователя (api/prioritize).
+     Без кнопок: план пересчитывается после входа и после изменений
+     в контрактах. Приоритет, который пользователь поставил руками, AI не трогает.
      ========================================================= */
   const AI_ERRORS = {
-    unauthorized: 'AI-план работает в аккаунте. Войди или создай аккаунт в меню профиля.',
-    no_user_key: 'Добавь свой ключ Gemini — без него AI-план не работает.',
+    unauthorized: 'AI работает в аккаунте. Войди или создай аккаунт.',
+    no_user_key: 'Добавь свой ключ Gemini — без него AI не расставит задачи.',
     invalid_key: 'Google не принял ключ. Проверь его в AI Studio и сохрани заново.',
     bad_key_format: 'Это не похоже на ключ Gemini. Скопируй его целиком из AI Studio.',
-    ai_rate_limited: 'Gemini просит паузу: лимит запросов твоего ключа. Попробуй через минуту.',
-    no_tasks: 'Нет открытых контрактов — план строить не из чего.'
+    ai_rate_limited: 'Gemini просит паузу: лимит запросов твоего ключа. Повторю позже.',
+    no_tasks: 'Нет открытых контрактов.'
   };
-  const SPACE_LABEL = { all: 'всё', workshop: 'мастерская', personal: 'личное' };
-  const ai = Object.assign({ focus: '', at: 0, context: '', model: '', spec: '', tab: 'list' }, readJSON(KEYS.ai) || {});
+  const ai = Object.assign({ focus: '', at: 0, model: '', spec: '' }, readJSON(KEYS.ai) || {});
   const aiKey = { known: false, hasKey: false, hint: null };
-  let aiBusy = false;
-
-  const aiOpenTasks = () => scopeTasks().filter(t => t.status !== 'done');
-  const aiPlanned = () => aiOpenTasks().filter(t => t.aiRank != null).sort((a, b) => a.aiRank - b.aiRank);
+  const plan = { timer: 0, busy: false, error: '', retryAt: 0, askKey: false };
+  const PLAN_DEBOUNCE = 6000;      // пауза после последнего изменения
+  const PLAN_GAP = 90 * 1000;      // не чаще раза в полторы минуты
+  const PLAN_MAX = 120;
 
   function aiMessage(node, text, type = 'info') {
+    if (!node) return;
     node.textContent = text || '';
     node.dataset.type = type;
   }
+
+  function hash(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
+  // отпечаток того, что важно для плана; AI-поля и приоритет сюда не входят
+  function taskFp(t) {
+    const p = projectById(t.projectId);
+    return hash([t.title, t.status, t.deadline ?? '', t.space, t.projectId || '', t.workType || '',
+      t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length,
+      t.materials.filter(m => !m.bought).length,
+      p ? (p.deadline ?? '') + p.convention : ''].join('|'));
+  }
+  const planOpen = () => state.tasks.filter(t => t.status !== 'done');
+  const needsPlan = () => planOpen().some(t => t.aiSig !== taskFp(t));
+  const aiReady = () => store.mode === 'cloud' && aiKey.known && aiKey.hasKey;
+
+  function schedulePlan(delay = PLAN_DEBOUNCE) {
+    clearTimeout(plan.timer);
+    plan.timer = 0;
+    if (!aiReady() || !needsPlan()) { renderAiStatus(); return; }
+    const wait = Math.max(delay, (ai.at || 0) + PLAN_GAP - Date.now(), plan.retryAt - Date.now());
+    plan.timer = setTimeout(runPlan, Math.max(0, wait));
+    renderAiStatus();
+  }
+
+  async function runPlan() {
+    plan.timer = 0;
+    if (plan.busy || !aiReady() || !needsPlan()) { renderAiStatus(); return; }
+    const open = planOpen();
+    const sorted = open.slice().sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity)).slice(0, PLAN_MAX);
+    const fps = new Map(open.map(t => [t.id, taskFp(t)]));
+    const iso = ms => (ms == null ? null : toLocalInput(ms));
+    const payload = sorted.map(t => {
+      const p = projectById(t.projectId);
+      return {
+        id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
+        deadline: iso(t.deadline), overdue: isOverdue(t), space: t.space,
+        workType: t.workType ? WORK[t.workType].label : null,
+        project: p ? p.name : null, convention: p ? p.convention : null, conventionDate: p ? iso(p.deadline) : null,
+        stepsDone: t.subtasks.filter(s => s.done).length, stepsTotal: t.subtasks.length,
+        materialsToBuy: t.materials.filter(m => !m.bought).length
+      };
+    });
+    plan.busy = true;
+    plan.error = '';
+    renderAiStatus();
+    try {
+      const res = await api('prioritize', { method: 'POST', body: { tasks: payload, now: toLocalInput(Date.now()), scope: 'всё' } });
+      const ids = new Set(sorted.map(t => t.id));
+      state.tasks.forEach(t => { if (ids.has(t.id)) { t.aiRank = null; t.aiPriority = null; t.aiReason = ''; } });
+      res.items.forEach((it, i) => {
+        const t = state.tasks.find(x => x.id === it.id);
+        if (!t) return;
+        t.aiRank = i;
+        t.aiPriority = it.priority;
+        t.aiReason = it.reason || '';
+        if (it.doneWhen && (!t.aiDone || t.aiDoneAuto)) { t.aiDone = it.doneWhen; t.aiDoneAuto = true; }
+        if (PRIORITY[it.priority] && !t.priorityManual && t.priority !== it.priority) t.priority = it.priority;
+      });
+      // отпечаток ставим и тем, что не влезли в лимит, — иначе план крутился бы без конца
+      open.forEach(t => { t.aiSig = fps.get(t.id); });
+      Object.assign(ai, { focus: res.focus || '', at: Date.now(), model: res.model || '', spec: res.spec || '' });
+      writeJSON(KEYS.ai, ai);
+      plan.retryAt = 0;
+      save();
+      renderAll();
+    } catch (err) {
+      if (err.status === 401 && cloud.user) { sessionLost(); return; }
+      if (err.message === 'no_user_key' || err.message === 'invalid_key') {
+        Object.assign(aiKey, { known: true, hasKey: err.message !== 'no_user_key' ? aiKey.hasKey : false });
+        plan.error = err.message;
+      } else {
+        plan.error = err.message === 'ai_rate_limited' ? 'rate' : 'failed';
+        plan.retryAt = Date.now() + (err.message === 'ai_rate_limited' ? 3 : 5) * 60 * 1000;
+        schedulePlan(0);
+      }
+    } finally {
+      plan.busy = false;
+      renderAiStatus();
+      renderKeyUi();
+    }
+  }
+
+  // маленький статус в панели фильтров вместо отдельного окна AI
+  function renderAiStatus() {
+    const s = el.aiStatus;
+    if (!s) return;
+    let state_ = 'ok', text = '', title = '';
+    if (store.mode !== 'cloud') { state_ = 'off'; text = 'AI · войди'; title = 'AI расставляет задачи по SPEC в аккаунте с ключом Gemini'; }
+    else if (!aiKey.known) { s.hidden = true; return; }
+    else if (!aiKey.hasKey) { state_ = 'warn'; text = 'AI · добавь ключ'; title = 'Добавь ключ Gemini — и трекер сам расставит задачи'; }
+    else if (plan.error === 'invalid_key') { state_ = 'warn'; text = 'AI · ключ не принят'; title = AI_ERRORS.invalid_key; }
+    else if (plan.busy) { state_ = 'busy'; text = 'AI расставляет…'; title = 'Gemini расставляет задачи по SPEC'; }
+    else if (plan.error === 'rate') { state_ = 'warn'; text = 'AI · пауза'; title = AI_ERRORS.ai_rate_limited; }
+    else if (plan.error === 'failed') { state_ = 'warn'; text = 'AI · повторю позже'; title = 'Не получилось связаться с Gemini — попробую ещё раз'; }
+    else if (plan.timer || needsPlan()) { state_ = 'busy'; text = 'AI · скоро обновлю'; title = 'Есть изменения — план пересчитается через несколько секунд'; }
+    else if (ai.at) { text = 'AI · ' + (Date.now() - ai.at < 60 * 1000 ? 'только что' : relative(ai.at)); title = ai.focus ? 'Фокус: ' + ai.focus : 'Задачи расставлены по SPEC'; }
+    else { text = 'AI · готов'; title = 'Задачи расставлены по SPEC'; }
+    s.hidden = false;
+    s.dataset.state = state_;
+    el.aiStatusText.textContent = text;
+    s.title = title;
+    s.setAttribute('aria-label', title);
+  }
+  el.aiStatus.addEventListener('click', () => {
+    if (store.mode !== 'cloud') { showAuth('login'); return; }
+    if (!aiKey.hasKey || plan.error === 'invalid_key') { openKeyModal(); return; }
+    if (ai.focus) toast('Фокус: ' + ai.focus, { duration: 6000 });
+  });
+  setInterval(() => { if (!plan.busy && ai.at) renderAiStatus(); }, 60 * 1000);
+  onSaved = () => schedulePlan();
 
   /* ---------- личный ключ ---------- */
   function renderKeyUi() {
@@ -2067,22 +2180,19 @@
     el.umAiKey.hidden = store.mode !== 'cloud';
     el.umAiKeyHint.textContent = has ? aiKey.hint || 'есть' : 'нет';
     el.umAiKeyHint.dataset.on = has ? '1' : '';
-    el.aiNoKey.hidden = store.mode !== 'cloud' || !aiKey.known || has;
-    el.aiForm.classList.toggle('is-locked', store.mode === 'cloud' && aiKey.known && !has);
-    el.aiKeyLabel.textContent = store.mode !== 'cloud' ? 'Gemini · нужен аккаунт' : has ? `Gemini · твой ключ ${aiKey.hint || ''}`.trim() : 'Gemini · ключ не добавлен';
     // без ключа: точка на аватаре и пункт меню «Добавить ключ Gemini»
     const missing = store.mode === 'cloud' && aiKey.known && !has;
     el.keyDot.hidden = !missing;
-    el.userBtn.title = missing ? 'Аккаунт · добавь ключ Gemini для AI' : 'Аккаунт';
+    if (cloud.user) el.userBtn.title = missing ? 'Аккаунт · добавь ключ Gemini для AI' : 'Аккаунт';
     el.umAiKey.classList.toggle('is-warn', missing);
     $('span', el.umAiKey).textContent = has ? 'AI-ключ Gemini' : 'Добавить ключ Gemini';
-    el.dsKeyLabel.textContent = el.aiKeyLabel.textContent;
+    el.dsKeyLabel.textContent = store.mode !== 'cloud' ? 'Gemini · нужен аккаунт' : has ? `Gemini · твой ключ ${aiKey.hint || ''}`.trim() : 'Gemini · ключ не добавлен';
     el.dsNoKey.hidden = !(store.mode !== 'cloud' || missing);
     el.dsNoKeyText.textContent = store.mode !== 'cloud'
       ? 'AI-часть SPEC пишет Gemini на твоём личном ключе — для этого нужен аккаунт. Сроки, контракты и бюджет считаются и без него.'
       : 'AI-часть SPEC пишет Gemini на твоём личном ключе. Добавь ключ — сроки, контракты и бюджет считаются и без него.';
     $('span', el.dsAddKey).textContent = store.mode !== 'cloud' ? 'Войти' : 'Добавить ключ';
-    el.dsForm.classList.toggle('is-locked', store.mode !== 'cloud' || missing);
+    renderAiStatus();
   }
 
   async function refreshKey() {
@@ -2094,6 +2204,25 @@
       if (e.status === 401 && cloud.user) sessionLost();
     }
     renderKeyUi();
+    if (plan.askKey && aiKey.known && !aiKey.hasKey) {
+      toast('Добавь ключ Gemini — и трекер сам расставит задачи по SPEC', { action: 'Добавить', onAction: openKeyModal, duration: 8000 });
+    }
+    plan.askKey = false;
+    schedulePlan(1500);
+  }
+
+  // сохранить ключ (из окна ключа или со страницы входа)
+  async function saveKey(key) {
+    const r = await api('ai-key', { method: 'PUT', body: { key } });
+    Object.assign(aiKey, { known: true, hasKey: r.hasKey, hint: r.hint });
+    plan.error = '';
+    plan.retryAt = 0;
+    renderKeyUi();
+    // новый ключ — пересчитать план сразу
+    state.tasks.forEach(t => { t.aiSig = ''; });
+    ai.at = 0;
+    schedulePlan(300);
+    return r;
   }
 
   function openKeyModal() {
@@ -2114,13 +2243,11 @@
     el.keySave.disabled = true;
     aiMessage(el.keyMsg, 'Проверяю ключ у Google…');
     try {
-      const r = await api('ai-key', { method: 'PUT', body: { key } });
-      Object.assign(aiKey, { known: true, hasKey: r.hasKey, hint: r.hint });
+      await saveKey(key);
       el.keyInput.value = '';
-      renderKeyUi();
       closeOverlay(el.keyOverlay);
-      toast('Ключ Gemini сохранён', { type: 'success' });
-      if (el.aiOverlay.classList.contains('open')) aiMessage(el.aiMsg, '');
+      toast('Ключ Gemini сохранён — расставляю задачи по SPEC', { type: 'success' });
+      if (el.dsOverlay.classList.contains('open')) autoDossierSpec();
     } catch (err) {
       if (err.status === 401 && cloud.user) { closeOverlay(el.keyOverlay); sessionLost(); return; }
       aiMessage(el.keyMsg, AI_ERRORS[err.message] || 'Не удалось сохранить ключ. Попробуй ещё раз.', 'danger');
@@ -2141,7 +2268,6 @@
     }
   });
   el.umAiKey.addEventListener('click', openKeyModal);
-  el.aiAddKey.addEventListener('click', openKeyModal);
   el.dsAddKey.addEventListener('click', () => {
     if (store.mode === 'cloud') { openKeyModal(); return; }
     closeOverlay(el.dsOverlay);
@@ -2205,212 +2331,6 @@
     }
     return out.join('');
   }
-
-  function renderSpec() {
-    if (!ai.spec) {
-      el.specDoc.innerHTML = `<div class="empty">${aiPlanned().length ? 'SPEC появится после пересчёта плана' : 'Нажми «Расставить» — здесь появится SPEC.md'}</div>`;
-      el.specRaw.textContent = '';
-    } else {
-      el.specDoc.innerHTML = renderMarkdown(ai.spec);
-      el.specRaw.textContent = ai.spec;
-    }
-    [el.specCopy, el.specDownload, el.specRawToggle].forEach(b => { b.disabled = !ai.spec; });
-  }
-
-  function setAiTab(tab) {
-    ai.tab = tab;
-    $$('.tab', el.aiTabs).forEach(b => b.classList.toggle('is-active', b.dataset.aitab === tab));
-    $$('.ai-panel', el.aiOverlay).forEach(p => { p.hidden = p.dataset.aipanel !== tab; });
-  }
-  el.aiTabs.addEventListener('click', e => {
-    const b = e.target.closest('.tab');
-    if (b && b.dataset.aitab !== ai.tab) { setAiTab(b.dataset.aitab); writeJSON(KEYS.ai, ai); }
-  });
-
-  el.specCopy.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(ai.spec); toast('SPEC.md скопирован', { type: 'success', duration: 2200 }); }
-    catch (e) { toast('Не удалось скопировать — открой «Исходник» и выдели текст', { type: 'danger' }); }
-  });
-  el.specDownload.addEventListener('click', () => {
-    const url = URL.createObjectURL(new Blob([ai.spec], { type: 'text/markdown;charset=utf-8' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'SPEC.md' });
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
-  el.specRawToggle.addEventListener('click', () => {
-    const raw = el.specRaw.hidden;
-    el.specRaw.hidden = !raw;
-    el.specDoc.hidden = raw;
-    el.specRawToggle.setAttribute('aria-pressed', String(raw));
-    $('span', el.specRawToggle).textContent = raw ? 'Документ' : 'Исходник';
-  });
-
-  /* ---------- список дел ---------- */
-  function aiItemHtml(t, i) {
-    const proj = projectById(t.projectId);
-    const work = t.workType && WORK[t.workType];
-    const sug = t.aiPriority && t.aiPriority !== t.priority ? t.aiPriority : null;
-    const sub = [proj ? escapeHtml(proj.name) : '', work ? work.label : '', t.status === 'progress' ? 'в работе' : ''].filter(Boolean).join(' · ');
-    const d = humanDue(t);
-    return `
-      <li class="ai-item" data-id="${t.id}" data-p="${t.aiPriority || t.priority}" style="--i:${i}">
-        <span class="prio" aria-hidden="true"></span>
-        <span class="ai-num">${String(i + 1).padStart(2, '0')}</span>
-        <button class="check" type="button" data-ai="done" aria-label="Закрыть контракт: ${escapeHtml(t.title)}">${icon('check')}</button>
-        <div class="ai-body">
-          <h4 class="ai-title">${escapeHtml(t.title)}</h4>
-          ${sub || d ? `<p class="ai-sub">${[sub, `<span class="due ${d.cls}">${escapeHtml(d.text)}</span>`].filter(Boolean).join(' · ')}</p>` : ''}
-          ${t.aiReason ? `<p class="ai-reason"><b>Почему</b>${escapeHtml(t.aiReason)}</p>` : ''}
-          ${t.aiDone ? `<p class="ai-done"><b>Готово, когда</b>${escapeHtml(t.aiDone)}</p>` : ''}
-          <div class="ai-row">
-            <span class="pchip" data-p="${t.priority}" title="${PRIORITY[t.priority].label}">${PRIORITY[t.priority].code}</span>
-            ${sug ? `<span class="ai-arrow">→</span><span class="pchip" data-p="${sug}" title="${PRIORITY[sug].label}">${PRIORITY[sug].code}</span>
-              <button type="button" class="ai-apply" data-ai="apply">Применить</button>` : ''}
-          </div>
-        </div>
-        <button class="icon-btn" type="button" data-ai="edit" aria-label="Открыть контракт" title="Открыть">${icon('edit')}</button>
-      </li>`;
-  }
-
-  function renderAiPlan() {
-    const list = aiPlanned();
-    const open = aiOpenTasks();
-    const fresh = open.filter(t => t.aiRank == null).length;
-    el.aiFocus.hidden = !ai.focus || !list.length;
-    el.aiFocusText.textContent = ai.focus;
-    el.aiList.innerHTML = list.length
-      ? list.map(aiItemHtml).join('')
-      : `<li class="empty">${open.length ? 'Плана ещё нет — нажми «Расставить»' : 'Открытых контрактов нет'}</li>`;
-    const pending = list.filter(t => t.aiPriority && t.aiPriority !== t.priority).length;
-    el.aiApplyAll.disabled = !pending;
-    $('span', el.aiApplyAll).textContent = pending ? `Применить приоритеты (${pending})` : 'Приоритеты совпадают';
-    const parts = [];
-    if (ai.at && list.length) parts.push('план составлен ' + relative(ai.at));
-    if (fresh && list.length) parts.push(`${fresh} ${plural(fresh, ['новый контракт', 'новых контракта', 'новых контрактов'])} не в плане`);
-    el.aiMeta.textContent = parts.join(' · ');
-    $('span', el.aiRun).textContent = list.length ? 'Пересчитать' : 'Расставить';
-    renderSpec();
-    renderKeyUi();
-  }
-
-  function aiReveal() {
-    if (reducedMotion) return;
-    const nodes = ai.tab === 'spec' ? $$('.spec-doc > *', el.aiOverlay) : $$('.ai-item', el.aiList);
-    nodes.forEach((node, i) => node.animate(
-      [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
-      { duration: 200, delay: Math.min(i, 12) * 40, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' }));
-  }
-
-  function openAiPlan() {
-    el.aiContext.value = ai.context || '';
-    aiMessage(el.aiMsg, store.mode === 'cloud' ? '' : AI_ERRORS.unauthorized, store.mode === 'cloud' ? 'info' : 'warn');
-    setAiTab(ai.tab === 'spec' ? 'spec' : 'list');
-    renderAiPlan();
-    openOverlay(el.aiOverlay, aiPlanned().length ? el.aiApplyAll : el.aiContext);
-    setTimeout(aiReveal, 120);
-    if (store.mode === 'cloud') refreshKey();
-  }
-
-  async function runAiPlan() {
-    if (aiBusy) return;
-    const open = aiOpenTasks();
-    if (!open.length) { aiMessage(el.aiMsg, AI_ERRORS.no_tasks, 'warn'); return; }
-    if (store.mode !== 'cloud') { aiMessage(el.aiMsg, AI_ERRORS.unauthorized, 'warn'); return; }
-    if (aiKey.known && !aiKey.hasKey) { aiMessage(el.aiMsg, AI_ERRORS.no_user_key, 'warn'); openKeyModal(); return; }
-    if (open.length > 120) aiMessage(el.aiMsg, 'Контрактов больше 120 — в план попадут первые 120 по сроку.', 'warn');
-
-    ai.context = el.aiContext.value.trim();
-    aiBusy = true;
-    el.aiRun.disabled = true;
-    el.aiOverlay.classList.add('ai-busy');
-    $('span', el.aiRun).textContent = 'Думаю…';
-    if (open.length <= 120) aiMessage(el.aiMsg, 'Gemini расставляет приоритеты и пишет SPEC.md…');
-
-    const sorted = open.slice().sort((a, b) => (a.deadline ?? Infinity) - (b.deadline ?? Infinity)).slice(0, 120);
-    const iso = ms => (ms == null ? null : toLocalInput(ms));
-    const payload = sorted.map(t => {
-      const p = projectById(t.projectId);
-      return {
-        id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
-        deadline: iso(t.deadline), overdue: isOverdue(t), space: t.space,
-        workType: t.workType ? WORK[t.workType].label : null,
-        project: p ? p.name : null, convention: p ? p.convention : null, conventionDate: p ? iso(p.deadline) : null,
-        stepsDone: t.subtasks.filter(s => s.done).length, stepsTotal: t.subtasks.length,
-        materialsToBuy: t.materials.filter(m => !m.bought).length
-      };
-    });
-
-    try {
-      const res = await api('prioritize', { method: 'POST', body: {
-        tasks: payload, context: ai.context, now: toLocalInput(Date.now()), scope: SPACE_LABEL[state.space] || 'всё'
-      } });
-      const ids = new Set(sorted.map(t => t.id));
-      state.tasks.forEach(t => { if (ids.has(t.id)) { t.aiRank = null; t.aiPriority = null; t.aiReason = ''; t.aiDone = ''; } });
-      res.items.forEach((it, i) => {
-        const t = state.tasks.find(x => x.id === it.id);
-        if (t) { t.aiRank = i; t.aiPriority = it.priority; t.aiReason = it.reason || ''; t.aiDone = it.doneWhen || ''; }
-      });
-      Object.assign(ai, { focus: res.focus || '', at: Date.now(), model: res.model || '', spec: res.spec || '' });
-      writeJSON(KEYS.ai, ai);
-      save();
-      aiMessage(el.aiMsg, '');
-      state.filter.sort = 'ai';
-      el.sortSelect.value = 'ai';
-      render();
-      renderAiPlan();
-      aiReveal();
-    } catch (err) {
-      if (err.status === 401 && cloud.user) { closeOverlay(el.aiOverlay); sessionLost(); return; }
-      if (err.message === 'no_user_key') { Object.assign(aiKey, { known: true, hasKey: false }); renderKeyUi(); }
-      aiMessage(el.aiMsg, AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось построить план. Попробуй ещё раз.'), 'danger');
-    } finally {
-      aiBusy = false;
-      el.aiRun.disabled = false;
-      el.aiOverlay.classList.remove('ai-busy');
-      $('span', el.aiRun).textContent = aiPlanned().length ? 'Пересчитать' : 'Расставить';
-    }
-  }
-
-  function applyAiPriority(task) {
-    if (!task.aiPriority || task.aiPriority === task.priority) return false;
-    updateTask(task.id, { priority: task.aiPriority });
-    return true;
-  }
-
-  el.aiPlanBtn.addEventListener('click', openAiPlan);
-  el.aiForm.addEventListener('submit', e => { e.preventDefault(); runAiPlan(); });
-  el.aiOverlay.addEventListener('click', e => {
-    if (e.target === el.aiOverlay || e.target.closest('[data-close]')) { closeOverlay(el.aiOverlay); return; }
-    const btn = e.target.closest('[data-ai]');
-    if (!btn) return;
-    const item = btn.closest('.ai-item');
-    const task = item && state.tasks.find(t => t.id === item.dataset.id);
-    if (!task) return;
-    const act = btn.dataset.ai;
-    if (act === 'apply') {
-      applyAiPriority(task);
-      render();
-      renderAiPlan();
-      toast(`Приоритет: ${PRIORITY[task.priority].label}`, { type: 'success', duration: 2200 });
-    } else if (act === 'done') {
-      item.classList.add('is-done');
-      setTimeout(() => {
-        completeTask(task, null);
-        renderAiPlan();
-      }, reducedMotion ? 0 : 300);
-    } else if (act === 'edit') {
-      closeOverlay(el.aiOverlay);
-      if (isPhone()) setView('list');
-      openPanel(task);
-    }
-  });
-  el.aiApplyAll.addEventListener('click', () => {
-    const n = aiPlanned().filter(applyAiPriority).length;
-    if (!n) return;
-    render();
-    renderAiPlan();
-    toast(`Приоритеты применены: ${n} ${plural(n, ['контракт', 'контракта', 'контрактов'])}`, { type: 'success' });
-  });
 
   /* =========================================================
      SPEC досье: живой документ по одному персонажу.
@@ -2514,7 +2434,8 @@
   }
 
   const dsFileName = p => `SPEC-${(p.name || 'dossier').trim().replace(/[\\/:*?"<>|\s]+/g, '-').slice(0, 40)}.md`;
-  const dsPending = p => dossierTasks(p).filter(t => t.status !== 'done' && t.aiPriority && t.aiPriority !== t.priority);
+  // отпечаток досье: AI-часть SPEC пересобирается, только если что-то поменялось
+  const dossierSig = p => hash([p.name, p.fandom, p.convention, p.deadline ?? ''].concat(dossierTasks(p).map(taskFp).sort()).join('#'));
 
   function renderDossierSpec() {
     const p = projectById(ds.pid);
@@ -2532,14 +2453,10 @@
         <button type="button" class="btn btn-ghost btn-sm" data-ds="add">${icon('plus')}<span>В контракты</span></button>
         <button type="button" class="icon-btn" data-ds="skip" aria-label="Убрать предложение «${escapeHtml(m.title)}»" title="Не нужно">${icon('close')}</button>
       </li>`).join('');
-    const pend = dsPending(p).length;
-    el.dsApply.disabled = !pend;
-    $('span', el.dsApply).textContent = pend ? `Применить приоритеты (${pend})` : 'Приоритеты совпадают';
     const fresh = dossierOrder(p, dossierTasks(p).filter(t => t.status !== 'done')).fresh;
     el.dsMeta.textContent = p.spec && p.spec.at
       ? ['AI-часть: ' + relative(p.spec.at), fresh ? `${fresh} ${plural(fresh, ['новый контракт', 'новых контракта', 'новых контрактов'])} без AI` : ''].filter(Boolean).join(' · ')
-      : 'AI-часть не составлена';
-    $('span', el.dsRun).textContent = p.spec && p.spec.at ? 'Обновить с AI' : 'Составить с AI';
+      : (aiReady() ? 'AI-часть составляется…' : 'AI-часть не составлена');
     renderKeyUi();
   }
 
@@ -2547,31 +2464,34 @@
     const p = projectById(pid);
     if (!p) return;
     ds.pid = p.id;
-    el.dsContext.value = (p.spec && p.spec.context) || '';
     aiMessage(el.dsMsg, '');
     el.dsRaw.hidden = true;
     el.dsDoc.hidden = false;
     el.dsRawToggle.setAttribute('aria-pressed', 'false');
     $('span', el.dsRawToggle).textContent = 'Исходник';
     renderDossierSpec();
-    if (!el.dsOverlay.classList.contains('open')) openOverlay(el.dsOverlay, store.mode === 'cloud' ? el.dsContext : el.dsCopy);
-    if (store.mode === 'cloud') refreshKey();
+    if (!el.dsOverlay.classList.contains('open')) openOverlay(el.dsOverlay, el.dsCopy);
+    autoDossierSpec();
+  }
+
+  // AI-часть SPEC досье обновляется сама, когда досье открыто и в нём что-то изменилось
+  function autoDossierSpec() {
+    const p = projectById(ds.pid);
+    if (!p || !aiReady() || ds.busy || !dossierTasks(p).length) return;
+    if (p.spec && p.spec.at && p.spec.sig === dossierSig(p)) return;
+    if (p.spec && p.spec.at && Date.now() - p.spec.at < 60 * 1000) return;
+    runDossierSpec();
   }
 
   async function runDossierSpec() {
     const p = projectById(ds.pid);
     if (!p || ds.busy) return;
     const tasks = dossierTasks(p);
-    if (!tasks.length) { aiMessage(el.dsMsg, 'В досье нет контрактов — добавь хотя бы один, и AI разберёт персонажа.', 'warn'); return; }
-    if (store.mode !== 'cloud') { aiMessage(el.dsMsg, AI_ERRORS.unauthorized, 'warn'); return; }
-    if (aiKey.known && !aiKey.hasKey) { aiMessage(el.dsMsg, AI_ERRORS.no_user_key, 'warn'); openKeyModal(); return; }
-
-    const context = el.dsContext.value.trim();
+    if (!tasks.length) return;
+    const sig = dossierSig(p);
     ds.busy = true;
-    el.dsRun.disabled = true;
     el.dsOverlay.classList.add('ai-busy');
-    $('span', el.dsRun).textContent = 'Думаю…';
-    aiMessage(el.dsMsg, 'Gemini разбирает досье и пишет SPEC…');
+    aiMessage(el.dsMsg, 'Gemini обновляет SPEC досье…');
     const iso = ms => (ms == null ? null : toLocalInput(ms));
     const payload = tasks.slice(0, 80).map(t => ({
       id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
@@ -2582,41 +2502,37 @@
     try {
       const res = await api('dossier-spec', { method: 'POST', body: {
         project: { name: p.name, fandom: p.fandom, convention: p.convention, conventionDate: iso(p.deadline) },
-        tasks: payload, context, now: toLocalInput(Date.now())
+        tasks: payload, now: toLocalInput(Date.now())
       } });
       const live = projectById(p.id);
       if (!live) return;
       live.spec = normalizeSpec({
         goal: res.goal, focus: res.focus, doneCriteria: res.doneCriteria, risks: res.risks, missing: res.missing,
-        order: res.order.map(o => ({ id: o.id, reason: o.reason })), context, model: res.model, at: Date.now()
+        order: res.order.map(o => ({ id: o.id, reason: o.reason })), model: res.model, at: Date.now(), sig
       });
       res.order.forEach(o => {
         const t = state.tasks.find(x => x.id === o.id);
         if (!t) return;
         t.aiPriority = o.priority;
-        t.aiReason = o.reason || '';
-        if (o.doneWhen && !t.aiDone) t.aiDone = o.doneWhen; // свой критерий пользователя не затираем
+        if (o.reason) t.aiReason = o.reason;
+        if (o.doneWhen && (!t.aiDone || t.aiDoneAuto)) { t.aiDone = o.doneWhen; t.aiDoneAuto = true; }
+        if (PRIORITY[o.priority] && !t.priorityManual) t.priority = o.priority;
       });
       save();
       aiMessage(el.dsMsg, '');
       renderAll();
-      renderDossierSpec();
-      toast('SPEC досье обновлён', { type: 'success', duration: 2200 });
     } catch (err) {
       if (err.status === 401 && cloud.user) { closeOverlay(el.dsOverlay); sessionLost(); return; }
       if (err.message === 'no_user_key') { Object.assign(aiKey, { known: true, hasKey: false }); renderKeyUi(); }
-      aiMessage(el.dsMsg, AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом.' : 'Не получилось составить SPEC. Попробуй ещё раз.'), 'danger');
+      aiMessage(el.dsMsg, AI_ERRORS[err.message] || (navigator.onLine === false ? 'Нет связи с интернетом — AI-часть обновится позже.' : 'Не получилось обновить AI-часть. Попробую при следующем открытии.'), 'danger');
     } finally {
       ds.busy = false;
-      el.dsRun.disabled = false;
       el.dsOverlay.classList.remove('ai-busy');
-      const live = projectById(ds.pid);
-      $('span', el.dsRun).textContent = live && live.spec && live.spec.at ? 'Обновить с AI' : 'Составить с AI';
+      if (el.dsOverlay.classList.contains('open')) renderDossierSpec();
     }
   }
 
   el.specBtn.addEventListener('click', () => { if (state.filter.project) openDossierSpec(state.filter.project); });
-  el.dsForm.addEventListener('submit', e => { e.preventDefault(); runDossierSpec(); });
   el.dsSuggList.addEventListener('click', e => {
     const btn = e.target.closest('[data-ds]');
     const li = btn && btn.closest('li[data-mid]');
@@ -2631,14 +2547,6 @@
       toast(`Контракт добавлен: «${m.title}»`, { type: 'success', duration: 2600 });
     } else save();
     renderDossierSpec();
-  });
-  el.dsApply.addEventListener('click', () => {
-    const p = projectById(ds.pid);
-    if (!p) return;
-    const n = dsPending(p).filter(applyAiPriority).length;
-    if (!n) return;
-    renderAll();
-    toast(`Приоритеты применены: ${n} ${plural(n, ['контракт', 'контракта', 'контрактов'])}`, { type: 'success' });
   });
   el.dsCopy.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(el.dsRaw.textContent); toast('SPEC скопирован', { type: 'success', duration: 2200 }); }
@@ -2683,7 +2591,6 @@
     if (e.key === '?') { e.preventDefault(); openOverlay(el.keysOverlay, $('[data-close]', el.keysOverlay)); return; }
     if (e.code === 'KeyN') { e.preventDefault(); openTaskModal(null); }
     if (e.code === 'KeyP') { e.preventDefault(); openProjectModal(null); }
-    if (e.code === 'KeyA') { e.preventDefault(); openAiPlan(); }
     if (e.code === 'KeyS' && state.filter.project && state.space !== 'personal') { e.preventDefault(); openDossierSpec(state.filter.project); }
     if (e.key === '/' || e.code === 'Slash') {
       e.preventDefault();
@@ -2777,6 +2684,7 @@
     if (ts <= (state.updatedAt || 0) || cloud.timer || cloud.pushing) return false;
     applyData(row.data);
     state.updatedAt = ts;
+    if (onSaved) onSaved();
     cloud.lastPushed = row.updated_at;
     writeCache();
     if (!anyOpen()) renderAll({ animate: !notify });
@@ -2925,6 +2833,7 @@
     el.authSub.textContent = t.sub;
     $('span', el.authSubmit).textContent = t.submit;
     el.aPass.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    $('#aKeyOpt').textContent = mode === 'login' ? 'если ещё не сохранён' : 'для AI';
     $$('.tab', el.authTabs).forEach(b => {
       const on = b.dataset.mode === mode;
       b.classList.toggle('is-active', on);
@@ -3012,14 +2921,26 @@
       if (authMode === 'register') {
         const geminiKey = el.aKey.value.trim();
         if (geminiKey) authMessage('Проверяю ключ Gemini…');
+        plan.askKey = !geminiKey;
         const { user, ai: keyInfo } = await api('auth/register', { method: 'POST', body: { email, password, name: el.aName.value.trim(), geminiKey } });
         if (keyInfo) Object.assign(aiKey, { known: true, hasKey: keyInfo.hasKey, hint: keyInfo.hint });
         el.aKey.value = '';
         await startCloudUser(user);
-        toast(keyInfo && keyInfo.hasKey ? 'Добро пожаловать! AI-план подключён' : 'Добро пожаловать в кузницу', { type: 'success' });
+        toast(keyInfo && keyInfo.hasKey ? 'Добро пожаловать! AI расставит задачи по SPEC' : 'Добро пожаловать в кузницу', { type: 'success' });
       } else {
+        const geminiKey = el.aKey.value.trim();
         const { user } = await api('auth/login', { method: 'POST', body: { email, password } });
+        plan.askKey = !geminiKey;
         await startCloudUser(user);
+        if (geminiKey) {
+          el.aKey.value = '';
+          try {
+            await saveKey(geminiKey);
+            toast('Ключ Gemini подключён — расставляю задачи по SPEC', { type: 'success' });
+          } catch (err) {
+            toast(AI_ERRORS[err.message] || 'Ключ не сохранился — добавь его в меню профиля', { type: 'danger', action: 'Ввести заново', onAction: openKeyModal, duration: 8000 });
+          }
+        }
       }
       el.aPass.value = '';
     } catch (err) {

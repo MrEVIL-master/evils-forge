@@ -11,15 +11,15 @@ export function AiPlan() {
   return (
     <section className="section" id="ai" aria-labelledby="ai-title">
       <div className="wrap">
-        <SectionHead num="03" label="AI-план" lead="Gemini смотрит на сроки, этапы и закупки и предлагает порядок работы. Ты решаешь, какие приоритеты принять.">
+        <SectionHead num="03" label="AI-план" lead="Gemini на твоём ключе сам расставляет порядок и приоритеты по SPEC — после входа и после каждого изменения. Без кнопок.">
           <span id="ai-title">Расставит приоритеты за тебя</span>
         </SectionHead>
         <Reveal className="ai-grid">
           <motion.ul variants={revealItem} className="ai-points">
-            <li><span>01</span><span><b>Порядок на сегодня</b>Каждый контракт — с причиной и условием «готово, когда».</span></li>
-            <li><span>02</span><span><b>Приоритеты одним нажатием</b>Предложение «P2 → P0» можно принять по одному или все сразу.</span></li>
-            <li><span>03</span><span><b>SPEC.md</b>План в виде документа: скопировать, скачать, отправить команде.</span></li>
-            <li><span>04</span><span><b>Твой ключ Gemini</b>Нужен свой ключ. Он хранится на сервере в зашифрованном виде, в интерфейсе видны только последние символы.</span></li>
+            <li><span>01</span><span><b>Сам, без кнопок</b>Добавила контракт, сдвинула срок, отметила этап — порядок и приоритеты пересчитаются сами.</span></li>
+            <li><span>02</span><span><b>SPEC на каждое досье</b>Цель, «готово, когда», сроки, материалы, бюджет и каких контрактов не хватает.</span></li>
+            <li><span>03</span><span><b>Твой приоритет главнее</b>Поставила приоритет руками — AI его не трогает, пока не вернёшь.</span></li>
+            <li><span>04</span><span><b>Твой ключ Gemini</b>Вводится при входе в аккаунт. Хранится на сервере в зашифрованном виде, в интерфейсе видны только последние символы.</span></li>
           </motion.ul>
           <motion.div variants={revealItem} className="ai-demo">
             <span className="sample">Пример</span>
